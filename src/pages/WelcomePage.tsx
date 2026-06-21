@@ -86,11 +86,11 @@ export default function WelcomePage() {
           </div>
 
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-surface-800 mb-4">
-            Evaluación de Desempeño
+            Central de Negocios
           </h1>
 
           <p className="text-surface-400 text-base md:text-lg max-w-xl mx-auto font-normal">
-            Portal corporativo para la gestión del talento. Selecciona una de las modalidades a continuación para iniciar.
+            Portal de Evaluación de Desempeño Corporativo. Selecciona una de las modalidades a continuación para iniciar.
           </p>
         </header>
 

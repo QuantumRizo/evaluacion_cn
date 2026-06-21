@@ -60,7 +60,7 @@ export default function LoginPage() {
             </svg>
           </div>
           <h1 className="text-xl font-semibold text-surface-800">
-            Iniciar sesión
+            Central de Negocios
           </h1>
           <p className="text-surface-400 text-sm mt-1">
             Evaluación de Desempeño Corporativo

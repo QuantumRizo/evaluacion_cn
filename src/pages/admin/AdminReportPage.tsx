@@ -193,7 +193,7 @@ export default function AdminReportPage() {
           {/* Print-only header */}
           <div className="hidden print:block mb-8 pb-6 border-b border-surface-200">
             <h1 className="text-2xl font-bold text-surface-900">
-              Reporte de Evaluación de Desempeño
+              Central de Negocios
             </h1>
             <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
               <div>
@@ -376,7 +376,7 @@ export default function AdminReportPage() {
               </div>
             </div>
             <p className="text-xs text-surface-400 text-center mt-8">
-              Documento generado el {today} — Sistema de Evaluación de Desempeño
+              Documento generado el {today} — Central de Negocios
             </p>
           </div>
         </div>

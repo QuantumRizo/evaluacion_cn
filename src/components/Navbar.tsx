@@ -21,7 +21,7 @@ export default function Navbar() {
           to={isAdmin ? '/admin' : '/evaluaciones'}
           className="text-sm font-semibold text-surface-800 tracking-tight"
         >
-          Evaluación de Desempeño
+          Central de Negocios
         </Link>
 
         {/* Nav links */}
