@@ -115,11 +115,11 @@ export default function EvaluationFormPage() {
     return acc;
   }, {});
 
-  if (loading) return <><Navbar /><LoadingSpinner fullPage /></>;
+  if (loading) return <div className="min-h-screen bg-surface-100 md:pl-64"><Navbar /><LoadingSpinner fullPage /></div>;
 
   if (alreadyDone) {
     return (
-      <div className="min-h-screen bg-surface-100">
+      <div className="min-h-screen bg-surface-100 md:pl-64">
         <Navbar />
         <div className="max-w-lg mx-auto px-6 py-24 text-center">
           <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
@@ -149,7 +149,7 @@ export default function EvaluationFormPage() {
   }
 
   return (
-    <div className="min-h-screen bg-surface-100">
+    <div className="min-h-screen bg-surface-100 md:pl-64">
       <Navbar />
 
       <main className="max-w-3xl mx-auto px-6 py-10">

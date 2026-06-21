@@ -1,0 +1,10 @@
+{
+  "name": "create-employee",
+  "version": "1.0.0",
+  "description": "Appwrite function to sync new Auth users to the Employees database collection",
+  "main": "src/main.js",
+  "type": "module",
+  "dependencies": {
+    "node-appwrite": "^13.0.0"
+  }
+}

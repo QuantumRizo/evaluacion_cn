@@ -86,7 +86,7 @@ export default function EvaluationsPage() {
   const totalCount = employees.length + 1;
 
   return (
-    <div className="min-h-screen bg-surface-100">
+    <div className="min-h-screen bg-surface-100 md:pl-64">
       <Navbar />
 
       <main className="max-w-5xl mx-auto px-6 py-10">
@@ -116,23 +116,21 @@ export default function EvaluationsPage() {
           </div>
         ) : (
           <>
-            {/* Progress bar */}
-            <div className="bg-white rounded-2xl border border-surface-200 p-5 mb-6">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-surface-700">
-                  Progreso general
-                </span>
-                <span className="text-sm font-semibold text-surface-800">
-                  {totalDone} / {totalCount} completadas
-                </span>
+            {/* Privacy Notification Banner */}
+            <div className="bg-white rounded-2xl border border-primary-100 p-5 mb-6 flex gap-4 items-start shadow-xs">
+              <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
               </div>
-              <div className="h-1.5 bg-surface-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary-500 rounded-full transition-all duration-500"
-                  style={{ width: `${Math.round((totalDone / totalCount) * 100)}%` }}
-                />
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-surface-800">Compromiso de Privacidad y Confidencialidad</h3>
+                <p className="text-xs text-surface-500 leading-relaxed mt-1">
+                  Tu participación es clave y totalmente segura. El sistema procesa las calificaciones de manera colectiva y consolidada, garantizando que ninguna respuesta individual a compañeros o líderes sea revelada o asociada a tu nombre.
+                </p>
               </div>
             </div>
+
 
             {/* Self-evaluation card */}
             <div className="mb-8">

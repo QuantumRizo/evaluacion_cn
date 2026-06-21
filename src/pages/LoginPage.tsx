@@ -40,17 +40,19 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-surface-100 flex items-center justify-center px-6">
-      <div className="w-full max-w-sm">
-        {/* Logo / Brand */}
-        <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-2xl bg-primary-500 flex items-center justify-center mx-auto mb-4 shadow-md shadow-primary-500/20">
+    <div className="min-h-screen flex items-center justify-center bg-surface-100 font-sans p-6">
+      {/* Centered Login Card */}
+      <div className="w-full max-w-md bg-white rounded-3xl border border-surface-200 shadow-xl shadow-surface-200/50 flex flex-col p-8 sm:p-10 relative z-10">
+        
+        {/* Top Logo */}
+        <div className="flex items-center justify-center gap-3 mb-8">
+          <div className="w-9 h-9 rounded-xl bg-primary-500 flex items-center justify-center shadow-lg shadow-primary-500/30">
             <svg
-              className="w-6 h-6 text-white"
+              className="w-5 h-5 text-white"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
-              strokeWidth={2}
+              strokeWidth={2.5}
             >
               <path
                 strokeLinecap="round"
@@ -59,74 +61,95 @@ export default function LoginPage() {
               />
             </svg>
           </div>
-          <h1 className="text-xl font-semibold text-surface-800">
-            Central de Negocios
-          </h1>
-          <p className="text-surface-400 text-sm mt-1">
-            Evaluación de Desempeño Corporativo
-          </p>
+          <span className="text-xl font-bold text-surface-800 tracking-tight">Central de Negocios</span>
         </div>
 
-        {/* Form card */}
-        <div className="bg-white rounded-2xl border border-surface-200 p-8 shadow-sm">
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        {/* Form Container */}
+        <div className="w-full flex flex-col">
+          <div className="mb-8 text-center">
+            <p className="text-surface-500 text-sm mb-1 font-medium">Bienvenido de vuelta</p>
+            <h1 className="text-2xl font-extrabold text-surface-800 tracking-tight">
+              Inicia sesión
+            </h1>
+          </div>
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-6">
             {/* Email */}
-            <div className="flex flex-col gap-1.5">
+            <div className="relative">
               <label
                 htmlFor="email"
-                className="text-xs font-medium text-surface-600"
+                className="absolute -top-2.5 left-3 bg-white px-1.5 text-[11px] font-bold uppercase tracking-wider text-primary-500 z-10"
               >
-                Correo corporativo
+                E-mail
               </label>
-              <input
-                id="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="nombre@empresa.com"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-surface-200 bg-surface-50 text-surface-800 text-sm placeholder:text-surface-300 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 transition-all"
-              />
-            </div>
-
-            {/* Password */}
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="password"
-                className="text-xs font-medium text-surface-600"
-              >
-                Contraseña
-              </label>
-              <input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-surface-200 bg-surface-50 text-surface-800 text-sm placeholder:text-surface-300 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 transition-all"
-              />
-            </div>
-
-            {/* Error */}
-            {error && (
-              <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-red-50 border border-red-100">
+              <div className="relative flex items-center">
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="ejemplo@empresa.com"
+                  className="w-full px-4 py-3.5 rounded-xl border-2 border-primary-100 bg-transparent text-surface-800 text-sm placeholder:text-surface-300 focus:outline-none focus:border-primary-500 transition-colors"
+                />
                 <svg
-                  className="w-4 h-4 text-red-400 shrink-0"
+                  className="absolute right-4 w-5 h-5 text-surface-300"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
                   strokeWidth={2}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
-                <span className="text-xs text-red-600">{error}</span>
+              </div>
+            </div>
+
+            {/* Password */}
+            <div className="relative mt-2">
+              <label
+                htmlFor="password"
+                className="absolute -top-2.5 left-3 bg-white px-1.5 text-[11px] font-bold uppercase tracking-wider text-surface-400 z-10"
+              >
+                Contraseña
+              </label>
+              <div className="relative flex items-center">
+                <input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-4 py-3.5 rounded-xl border-2 border-surface-200 bg-transparent text-surface-800 text-sm placeholder:text-surface-300 focus:outline-none focus:border-primary-500 transition-colors"
+                />
+                <svg
+                  className="absolute right-4 w-5 h-5 text-surface-300"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Error */}
+            {error && (
+              <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 border border-red-100">
+                <svg
+                  className="w-4 h-4 text-red-500 shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-xs font-medium text-red-600">{error}</span>
               </div>
             )}
 
@@ -134,7 +157,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full py-2.5 rounded-xl bg-primary-500 hover:bg-primary-600 disabled:bg-primary-300 text-white text-sm font-semibold transition-colors duration-200 flex items-center justify-center gap-2"
+              className="w-full py-4 mt-2 rounded-xl bg-primary-500 hover:bg-primary-600 disabled:bg-primary-300 text-white text-sm font-semibold shadow-lg shadow-primary-500/25 transition-all duration-200 flex items-center justify-center gap-2"
             >
               {submitting ? (
                 <>
@@ -142,15 +165,36 @@ export default function LoginPage() {
                   Ingresando...
                 </>
               ) : (
-                'Ingresar'
+                'Iniciar sesión'
               )}
             </button>
           </form>
+          
+          <div className="mt-8 flex items-center gap-4">
+            <div className="h-px bg-surface-100 flex-1"></div>
+            <span className="text-xs font-medium text-surface-400">Evaluación de Desempeño Corporativo</span>
+            <div className="h-px bg-surface-100 flex-1"></div>
+          </div>
         </div>
 
-        <p className="text-center text-surface-400 text-xs mt-6">
-          Acceso restringido a colaboradores autorizados.
-        </p>
+        {/* Footer */}
+        <div className="mt-8 flex flex-col gap-3">
+          {/* Privacy Alert */}
+          <div className="p-3.5 rounded-xl bg-primary-50 border border-primary-100 flex gap-3 text-left">
+            <svg className="w-4 h-4 text-primary-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            <div>
+              <p className="text-xs font-semibold text-primary-800 mb-0.5">Evaluación 100% Confidencial</p>
+              <p className="text-[11px] text-primary-600 leading-normal">
+                Tus respuestas se recopilan de forma segura. Solo se reportan promedios globales al evaluado, protegiendo tu identidad.
+              </p>
+            </div>
+          </div>
+          <p className="text-surface-400 text-xs font-medium text-center">
+            Acceso restringido a colaboradores autorizados.
+          </p>
+        </div>
       </div>
     </div>
   );

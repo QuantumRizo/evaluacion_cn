@@ -45,19 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (result.documents.length > 0) {
         setEmployee(result.documents[0] as unknown as Employee);
       } else {
-        // Auto-provisioning: If the employee doc doesn't exist, create it automatically
-        const newEmployee = await databases.createDocument(
-          DB_ID,
-          COLLECTIONS.EMPLOYEES,
-          ID.unique(),
-          {
-            name: currentUser.name || 'Sin Nombre',
-            email: currentUser.email,
-            auth_user_id: currentUser.$id,
-            role: 'employee',
-          }
-        );
-        setEmployee(newEmployee as unknown as Employee);
+        setEmployee(null);
       }
     } catch {
       setUser(null);

@@ -150,10 +150,10 @@ export default function AdminReportPage() {
     year: 'numeric', month: 'long', day: 'numeric',
   });
 
-  if (loading) return <><Navbar /><LoadingSpinner fullPage /></>;
+  if (loading) return <div className="min-h-screen bg-surface-100 md:pl-64 print:pl-0"><Navbar /><LoadingSpinner fullPage /></div>;
 
   return (
-    <div className="min-h-screen bg-surface-100">
+    <div className="min-h-screen bg-surface-100 md:pl-64 print:pl-0">
       {/* Navbar — hidden on print */}
       <Navbar />
 

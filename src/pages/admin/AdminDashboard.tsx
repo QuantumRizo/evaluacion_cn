@@ -121,7 +121,7 @@ export default function AdminDashboard() {
   const completedCount = employees.filter((e) => e.collectiveScore !== null).length;
 
   return (
-    <div className="min-h-screen bg-surface-100">
+    <div className="min-h-screen bg-surface-100 md:pl-64">
       <Navbar />
 
       <main className="max-w-6xl mx-auto px-6 py-10">
