@@ -1,0 +1,73 @@
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import LoadingSpinner from './components/LoadingSpinner';
+
+import LoginPage from './pages/LoginPage';
+import EvaluationsPage from './pages/EvaluationsPage';
+import EvaluationFormPage from './pages/EvaluationFormPage';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminReportPage from './pages/admin/AdminReportPage';
+
+function RootRedirect() {
+  const { user, employee, isLoading, isAdmin } = useAuth();
+  if (isLoading) return <LoadingSpinner fullPage />;
+  if (!user || !employee) return <Navigate to="/login" replace />;
+  return <Navigate to={isAdmin ? '/admin' : '/evaluaciones'} replace />;
+}
+
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/" element={<RootRedirect />} />
+      <Route path="/login" element={<LoginPage />} />
+
+      {/* Employee routes */}
+      <Route
+        path="/evaluaciones"
+        element={
+          <ProtectedRoute>
+            <EvaluationsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/evaluar/:evaluatedId"
+        element={
+          <ProtectedRoute>
+            <EvaluationFormPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Admin routes */}
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute requireAdmin>
+            <AdminDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/reporte/:employeeId"
+        element={
+          <ProtectedRoute requireAdmin>
+            <AdminReportPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
+  );
+}
