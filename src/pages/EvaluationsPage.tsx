@@ -132,7 +132,8 @@ export default function EvaluationsPage() {
 
             {/* Self-evaluation card */}
             <div className="mb-8">
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-surface-400 mb-3">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-indigo-600 mb-3 flex items-center gap-2">
+                <span className="w-1.5 h-3 rounded-full bg-indigo-500"></span>
                 Autoevaluación
               </h2>
               <button
@@ -140,15 +141,15 @@ export default function EvaluationsPage() {
                   !selfDone && navigate(`/evaluar/${currentEmployee!.$id}`)
                 }
                 disabled={selfDone}
-                className={`w-full flex items-center justify-between p-5 rounded-2xl border transition-all duration-200 text-left ${
+                className={`w-full flex items-center justify-between p-5 rounded-2xl border border-l-4 transition-all duration-200 text-left ${
                   selfDone
-                    ? 'bg-white border-surface-200 cursor-default'
-                    : 'bg-white border-primary-200 hover:border-primary-400 hover:shadow-sm cursor-pointer'
+                    ? 'bg-white border-surface-200 border-l-green-500 cursor-default'
+                    : 'bg-white border-surface-200 border-l-indigo-600 hover:border-indigo-400 hover:shadow-sm cursor-pointer'
                 }`}
               >
                 <div className="flex items-center gap-4">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${selfDone ? 'bg-surface-100' : 'bg-primary-50'}`}>
-                    <svg className={`w-4.5 h-4.5 ${selfDone ? 'text-surface-400' : 'text-primary-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${selfDone ? 'bg-green-50' : 'bg-indigo-50'}`}>
+                    <svg className={`w-4.5 h-4.5 ${selfDone ? 'text-green-600' : 'text-indigo-600'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                   </div>
@@ -174,8 +175,9 @@ export default function EvaluationsPage() {
             {/* Peers */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-surface-400">
-                  Colaboradores ({employees.length})
+                <h2 className="text-xs font-bold uppercase tracking-wider text-primary-600 flex items-center gap-2">
+                  <span className="w-1.5 h-3 rounded-full bg-primary-500"></span>
+                  Evaluar a otros empleados ({employees.length})
                 </h2>
                 {/* Search */}
                 <div className="relative">
@@ -220,7 +222,7 @@ export default function EvaluationsPage() {
 
               {filtered.length === 0 && (
                 <div className="text-center py-10 text-surface-400 text-sm">
-                  No se encontraron colaboradores.
+                  No se encontraron empleados para evaluar.
                 </div>
               )}
             </div>
@@ -244,15 +246,19 @@ function EmployeeRow({
     <button
       onClick={done ? undefined : onClick}
       disabled={done}
-      className={`w-full flex items-center justify-between px-5 py-4 rounded-xl border bg-white transition-all duration-200 text-left ${
+      className={`w-full flex items-center justify-between px-5 py-4 rounded-xl border border-l-4 bg-white transition-all duration-200 text-left ${
         done
-          ? 'border-surface-200 cursor-default opacity-60'
-          : 'border-surface-200 hover:border-primary-300 hover:shadow-sm cursor-pointer'
+          ? 'border-surface-200 border-l-green-500 cursor-default opacity-65'
+          : 'border-surface-200 border-l-primary-500 hover:border-primary-300 hover:shadow-sm cursor-pointer'
       }`}
     >
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-surface-100 flex items-center justify-center shrink-0">
-          <span className="text-xs font-semibold text-surface-500">
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+          done ? 'bg-green-50' : 'bg-primary-50'
+        }`}>
+          <span className={`text-xs font-semibold ${
+            done ? 'text-green-600' : 'text-primary-600'
+          }`}>
             {employee.name.charAt(0).toUpperCase()}
           </span>
         </div>
