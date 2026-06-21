@@ -82,8 +82,6 @@ export default function EvaluationsPage() {
 
   const pending = filtered.filter((e) => !e.evaluated);
   const completed = filtered.filter((e) => e.evaluated);
-  const totalDone = employees.filter((e) => e.evaluated).length + (selfDone ? 1 : 0);
-  const totalCount = employees.length + 1;
 
   return (
     <div className="min-h-screen bg-surface-100 md:pl-64">

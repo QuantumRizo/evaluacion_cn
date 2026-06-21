@@ -9,7 +9,6 @@ import type { Models } from 'appwrite';
 import { account, databases, Query } from '../lib/appwrite';
 import { DB_ID, COLLECTIONS } from '../lib/constants';
 import type { Employee } from '../types';
-import { ID } from 'appwrite';
 
 interface AuthContextType {
   user: Models.User<Models.Preferences> | null;
