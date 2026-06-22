@@ -13,6 +13,7 @@ function RootRedirect() {
   const { user, employee, isLoading, isAdmin } = useAuth();
   if (isLoading) return <LoadingSpinner fullPage />;
   if (!user || !employee) return <Navigate to="/login" replace />;
+  // Admins land on /admin but can also visit /evaluaciones
   return <Navigate to={isAdmin ? '/admin' : '/evaluaciones'} replace />;
 }
 
@@ -22,7 +23,7 @@ function AppRoutes() {
       <Route path="/" element={<RootRedirect />} />
       <Route path="/login" element={<LoginPage />} />
 
-      {/* Employee routes */}
+      {/* Employee routes - also accessible by admins */}
       <Route
         path="/evaluaciones"
         element={

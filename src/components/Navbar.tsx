@@ -54,11 +54,11 @@ export default function Navbar() {
 
         {/* Navigation Links */}
         <nav className="flex-1 flex flex-col gap-2">
-          {isAdmin ? (
+          {isAdmin && (
             <Link
               to="/admin"
               className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold transition-all ${
-                isActive('/admin')
+                location.pathname === '/admin' || location.pathname.startsWith('/admin/reporte')
                   ? 'bg-white/15 text-white shadow-sm'
                   : 'text-white/80 hover:text-white hover:bg-white/5'
               }`}
@@ -68,21 +68,20 @@ export default function Navbar() {
               </svg>
               Dashboard Admin
             </Link>
-          ) : (
-            <Link
-              to="/evaluaciones"
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold transition-all ${
-                isActive('/evaluaciones')
-                  ? 'bg-white/15 text-white shadow-sm'
-                  : 'text-white/80 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-              Mis Evaluaciones
-            </Link>
           )}
+          <Link
+            to="/evaluaciones"
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold transition-all ${
+              isActive('/evaluaciones') || isActive('/evaluar')
+                ? 'bg-white/15 text-white shadow-sm'
+                : 'text-white/80 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            Mis Evaluaciones
+          </Link>
         </nav>
 
         {/* User Info & Logout Footer */}
