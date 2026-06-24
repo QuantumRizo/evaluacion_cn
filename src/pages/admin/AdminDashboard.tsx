@@ -69,7 +69,7 @@ export default function AdminDashboard() {
     try {
       const [cyclesResult, emps] = await Promise.all([
         databases.listDocuments(DB_ID, COLLECTIONS.EVALUATION_CYCLES, [Query.orderDesc('$createdAt')]),
-        fetchAllDocuments<Employee>(COLLECTIONS.EMPLOYEES, [Query.equal('role', 'employee')]),
+        fetchAllDocuments<Employee>(COLLECTIONS.EMPLOYEES),
       ]);
       const cycles = cyclesResult.documents as unknown as EvaluationCycle[];
       setAllCycles(cycles);
