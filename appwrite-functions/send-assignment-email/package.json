@@ -1,0 +1,10 @@
+{
+  "name": "send-assignment-email",
+  "version": "1.0.0",
+  "description": "Envia correos de asignación a los evaluadores vía Resend",
+  "main": "src/main.js",
+  "type": "module",
+  "dependencies": {
+    "node-appwrite": "^11.0.0"
+  }
+}
