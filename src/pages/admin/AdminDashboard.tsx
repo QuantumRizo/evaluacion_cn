@@ -234,6 +234,14 @@ export default function AdminDashboard() {
                         <ScoreChip value={emp.collectiveScore} />
                       </td>
                       <td className="px-6 py-4 text-right">
+                        {cycle && (
+                          <button
+                            onClick={() => navigate(`/admin/asignaciones/${cycle.$id}?employee=${emp.$id}`)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 mr-2 rounded-lg border border-surface-200 text-xs font-medium text-surface-600 hover:border-primary-300 hover:text-primary-600 hover:bg-primary-50 transition-all"
+                          >
+                            Asignar evaluadores
+                          </button>
+                        )}
                         <button
                           onClick={() => navigate(`/admin/reporte/${emp.$id}`)}
                           className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-surface-200 text-xs font-medium text-surface-600 hover:border-primary-300 hover:text-primary-600 hover:bg-primary-50 transition-all"
@@ -305,6 +313,8 @@ function CycleModal({
   onRefresh: () => void;
 }) {
   const [name, setName] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [creating, setCreating] = useState(false);
 
   async function createCycle() {
@@ -314,8 +324,12 @@ function CycleModal({
       await databases.createDocument(DB_ID, COLLECTIONS.EVALUATION_CYCLES, ID.unique(), {
         name: name.trim(),
         status: 'draft',
+        start_date: startDate || undefined,
+        end_date: endDate || undefined,
       });
       setName('');
+      setStartDate('');
+      setEndDate('');
       onRefresh();
     } catch (err) {
       console.error(err);
@@ -353,57 +367,84 @@ function CycleModal({
 
         <div className="px-6 py-5">
           {/* New cycle */}
-          <div className="flex gap-2 mb-6">
-            <input
-              type="text"
-              placeholder="Ej: Q2 2026"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="flex-1 px-3.5 py-2 rounded-xl border border-surface-200 bg-surface-50 text-sm text-surface-800 placeholder:text-surface-300 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400"
-            />
-            <button
-              onClick={createCycle}
-              disabled={!name.trim() || creating}
-              className="px-4 py-2 rounded-xl bg-primary-500 hover:bg-primary-600 disabled:bg-surface-200 disabled:text-surface-400 text-white text-sm font-medium transition-colors"
-            >
-              Crear
-            </button>
+          <div className="flex flex-col gap-3 mb-6 bg-surface-50 p-4 rounded-xl border border-surface-200">
+            <h3 className="text-sm font-semibold text-surface-700">Crear nuevo ciclo</h3>
+            <div className="flex flex-col gap-2">
+              <input
+                type="text"
+                placeholder="Nombre (Ej: Q2 2026)"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-3.5 py-2 rounded-xl border border-surface-200 bg-white text-sm text-surface-800 placeholder:text-surface-300 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400"
+              />
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  title="Fecha de inicio"
+                  className="flex-1 px-3.5 py-2 rounded-xl border border-surface-200 bg-white text-sm text-surface-800 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400"
+                />
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  title="Fecha de fin"
+                  className="flex-1 px-3.5 py-2 rounded-xl border border-surface-200 bg-white text-sm text-surface-800 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400"
+                />
+              </div>
+              <button
+                onClick={createCycle}
+                disabled={!name.trim() || creating}
+                className="w-full mt-1 px-4 py-2 rounded-xl bg-primary-500 hover:bg-primary-600 disabled:bg-surface-200 disabled:text-surface-400 text-white text-sm font-medium transition-colors"
+              >
+                Crear Ciclo
+              </button>
+            </div>
           </div>
 
           {/* List */}
-          <div className="flex flex-col gap-2 max-h-64 overflow-y-auto">
+          <div className="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1">
             {cycles.length === 0 && (
               <p className="text-surface-400 text-sm text-center py-4">No hay ciclos aún.</p>
             )}
             {cycles.map((c) => (
-              <div key={c.$id} className="flex items-center justify-between px-4 py-3 rounded-xl border border-surface-100 bg-surface-50">
-                <div>
-                  <p className="text-sm font-medium text-surface-800">{c.name}</p>
-                  <p className="text-xs text-surface-400 capitalize">{
-                    c.status === 'active' ? 'Activo' : c.status === 'closed' ? 'Cerrado' : 'Borrador'
-                  }</p>
+              <div key={c.$id} className="flex flex-col gap-3 px-4 py-3 rounded-xl border border-surface-100 bg-surface-50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-surface-800">{c.name}</p>
+                    <p className="text-xs text-surface-400 capitalize">{
+                      c.status === 'active' ? 'Activo' : c.status === 'closed' ? 'Cerrado' : 'Borrador'
+                    }</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {c.status !== 'active' && c.status !== 'closed' && (
+                      <button
+                        onClick={() => setStatus(c.$id, 'active')}
+                        className="px-3 py-1 rounded-lg bg-primary-50 text-primary-600 border border-primary-100 text-xs font-medium hover:bg-primary-100 transition-colors"
+                      >
+                        Activar
+                      </button>
+                    )}
+                    {c.status === 'active' && (
+                      <button
+                        onClick={() => setStatus(c.$id, 'closed')}
+                        className="px-3 py-1 rounded-lg bg-amber-50 text-amber-600 border border-amber-100 text-xs font-medium hover:bg-amber-100 transition-colors"
+                      >
+                        Cerrar
+                      </button>
+                    )}
+                    {c.status === 'active' && (
+                      <span className="inline-block w-2 h-2 rounded-full bg-green-400" />
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {c.status !== 'active' && c.status !== 'closed' && (
-                    <button
-                      onClick={() => setStatus(c.$id, 'active')}
-                      className="px-3 py-1 rounded-lg bg-primary-50 text-primary-600 border border-primary-100 text-xs font-medium hover:bg-primary-100 transition-colors"
-                    >
-                      Activar
-                    </button>
-                  )}
-                  {c.status === 'active' && (
-                    <button
-                      onClick={() => setStatus(c.$id, 'closed')}
-                      className="px-3 py-1 rounded-lg bg-amber-50 text-amber-600 border border-amber-100 text-xs font-medium hover:bg-amber-100 transition-colors"
-                    >
-                      Cerrar
-                    </button>
-                  )}
-                  {c.status === 'active' && (
-                    <span className="inline-block w-2 h-2 rounded-full bg-green-400" />
-                  )}
-                </div>
+                {(c.start_date || c.end_date) && (
+                  <div className="text-[11px] text-surface-500 flex items-center gap-3 border-t border-surface-200 pt-2">
+                    {c.start_date && <span>Inicio: {new Date(c.start_date).toLocaleDateString()}</span>}
+                    {c.end_date && <span>Fin: {new Date(c.end_date).toLocaleDateString()}</span>}
+                  </div>
+                )}
               </div>
             ))}
           </div>

@@ -120,6 +120,15 @@ const COLLECTIONS = [
       { key: 'is_exported',     type: 'boolean', required: false, default: false },
     ],
   },
+  {
+    id: 'evaluation_assignments',
+    name: 'Asignaciones de Evaluadores',
+    attributes: [
+      { key: 'cycle_id',     type: 'string', size: 255, required: true },
+      { key: 'evaluated_id', type: 'string', size: 255, required: true },
+      { key: 'evaluator_id', type: 'string', size: 255, required: true },
+    ],
+  },
 ];
 
 // ─── 28 preguntas predefinidas ────────────────────────────────────

@@ -1,0 +1,134 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+body {
+  font-family: 'Outfit', sans-serif;
+  color: #1e293b;
+  line-height: 1.6;
+  font-size: 11pt;
+  margin: 0;
+}
+
+/* Page boundaries and settings */
+@page {
+  size: letter;
+  margin: 0.6in 0.8in;
+  @bottom-right {
+    content: counter(page);
+    font-family: 'Outfit', sans-serif;
+    font-size: 9pt;
+    color: #64748b;
+  }
+}
+
+h1 {
+  font-size: 26pt;
+  color: #416364;
+  font-weight: 700;
+  margin-top: 0;
+  margin-bottom: 0.2em;
+  line-height: 1.2;
+}
+
+h2 {
+  font-size: 16pt;
+  color: #416364;
+  font-weight: 600;
+  margin-top: 1.8em;
+  margin-bottom: 0.6em;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.3em;
+  page-break-after: avoid;
+}
+
+h3 {
+  font-size: 12pt;
+  color: #5d7e80;
+  font-weight: 600;
+  margin-top: 1.4em;
+  margin-bottom: 0.4em;
+  page-break-after: avoid;
+}
+
+p {
+  margin-top: 0;
+  margin-bottom: 1em;
+}
+
+/* Lists styling */
+ul, ol {
+  margin-top: 0;
+  margin-bottom: 1.2em;
+  padding-left: 1.5em;
+}
+
+li {
+  margin-bottom: 0.4em;
+}
+
+/* Callout blocks (Alerts) */
+blockquote {
+  margin: 1.5em 0;
+  padding: 1em 1.2em;
+  background-color: #f0f5f5;
+  border-left: 4px solid #416364;
+  border-radius: 0 8px 8px 0;
+  color: #2c4344;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+blockquote p {
+  margin-bottom: 0;
+}
+
+blockquote p strong {
+  color: #416364;
+}
+
+/* Code blocks & ASCII diagram */
+pre {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1em;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5pt;
+  overflow: auto;
+  margin: 1.5em 0;
+  line-height: 1.4;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5pt;
+  background-color: #f1f5f9;
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  color: #0f172a;
+}
+
+pre code {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+  color: inherit;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid #e2e8f0;
+  margin: 2em 0;
+}
+
+/* Document subtitle/meta info */
+h3 + hr {
+  margin-top: 1em;
+}
+
+.subtitle {
+  font-size: 13pt;
+  color: #64748b;
+  margin-bottom: 2em;
+}

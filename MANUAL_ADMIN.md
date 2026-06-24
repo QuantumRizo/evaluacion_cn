@@ -1,79 +1,84 @@
 # Manual del Administrador
-Sistema de Evaluación de Desempeño Corporativo
+### Sistema de Gestión y Evaluación de Desempeño — Central de Negocios
 
-Este manual detalla los procedimientos necesarios para administrar, gestionar y analizar las evaluaciones de desempeño del personal utilizando la plataforma.
-
----
-
-## 1. Acceso al Sistema
-
-Para ingresar al panel de administración:
-1. Navegue a la página de inicio de sesión de la plataforma.
-2. Ingrese su correo corporativo y contraseña (proporcionados durante la configuración inicial).
-3. Si su cuenta tiene privilegios administrativos, el sistema lo redirigirá automáticamente al **Panel de Administrador** (/admin).
+Este manual detalla los procedimientos para la administración, gestión y análisis de las evaluaciones de desempeño. Está diseñado especialmente para el rol de **Administración de Capital Humano / Operaciones** (no requiere conocimientos técnicos ni acceso a bases de datos).
 
 ---
 
-## 2. Gestión de Usuarios (Alta de Empleados)
+## 1. Acceso al Panel Administrativo
 
-Debido a los requerimientos de seguridad, los empleados no pueden registrarse libremente. El administrador debe dar de alta las cuentas.
+1. Ingrese a la URL: https://evaluacion-cn.vercel.app/evaluaciones
+2. Inicie sesión con su **correo corporativo** y la **contraseña** asignada.
+3. Al detectar su rol, el sistema le habilitará el menú lateral con dos secciones clave:
+   * **Dashboard Admin**: Vista exclusiva para gestionar ciclos, ver reportes y descargar resultados.
+   * **Mis Evaluaciones**: Panel donde usted podrá realizar su propia evaluación y evaluar al equipo.
 
-**Paso A: Crear las credenciales de acceso**
-1. Ingrese a la consola de **Appwrite Cloud**.
-2. Diríjase a la sección **Auth** > **Users**.
-3. Haga clic en "Create User".
-4. Ingrese el Nombre, Correo y asigne una Contraseña segura para el empleado.
-5. Comparta estas credenciales de forma segura con el empleado.
+---
 
-*Nota: La primera vez que el empleado inicie sesión en la plataforma, el sistema creará automáticamente su perfil en la base de datos con el rol de "Empleado". No es necesario que usted cree el registro en la base de datos manualmente.*
+## 2. Rol Activo del Administrador en las Evaluaciones
 
-**Otorgar permisos de Administrador a otro usuario:**
-Si necesita que otro empleado sea administrador, una vez que haya iniciado sesión por primera vez, vaya a **Appwrite Console** > **Databases** > `evaluacion_desempeno` > `employees`. Busque al empleado y cambie su campo `role` de `employee` a `admin`.
+En esta plataforma, **el Administrador también participa activamente en el proceso de evaluación**:
+* **Usted es evaluado:** Aparecerá en la lista de colaboradores para que el resto del equipo pueda calificar su desempeño de manera confidencial.
+* **Usted evalúa:** Desde la sección **"Mis Evaluaciones"**, podrá realizar su **Autoevaluación** y evaluar a los demás colaboradores.
 
 ---
 
 ## 3. Gestión de Ciclos de Evaluación
 
-Un Ciclo de Evaluación es el periodo durante el cual la plataforma se "abre" para recibir calificaciones.
+El sistema funciona mediante **Ciclos de Evaluación** (periodos de tiempo definidos en los que la plataforma está abierta para recibir calificaciones).
 
-**Crear un Ciclo:**
-1. En el Panel de Administrador, haga clic en "Nuevo Ciclo".
-2. Asigne un nombre descriptivo (ej. "Evaluación Anual 2026").
-3. Opcionalmente, agregue una descripción de los objetivos del ciclo.
-4. El ciclo se creará en estado **Borrador (Draft)**.
+```
+ ┌──────────┐    Activar     ┌──────────┐     Cerrar     ┌────────────┐
+ │ Borrador │  ───────────>  │  Activo  │  ───────────>  │ Finalizado │
+ └──────────┘                └──────────┘                └────────────┘
+```
 
-**Activar un Ciclo:**
-Para que los empleados comiencen a evaluarse, debe activar el ciclo. Solo puede haber un ciclo activo a la vez.
-1. Localice el ciclo en estado Borrador en su panel.
-2. Haga clic en **Activar**.
-3. A partir de este momento, cualquier empleado que inicie sesión verá las encuestas habilitadas.
+### Crear un Ciclo Nuevo
+1. En el **Dashboard Admin**, haga clic en **"Nuevo Ciclo"**.
+2. Escriba un nombre claro (ej. `Evaluación de Desempeño - Primer Semestre 2026`).
+3. Defina una fecha límite sugerida para motivar a los colaboradores.
+4. El ciclo se guardará inicialmente en estado **Borrador**. En este estado, los empleados aún no pueden completar encuestas.
 
-**Cerrar un Ciclo:**
-Una vez transcurrido el tiempo límite que la empresa determine para las evaluaciones:
-1. Localice el ciclo activo en su panel.
-2. Haga clic en **Cerrar Ciclo**.
-3. El sistema dejará de aceptar nuevas respuestas y congelará los resultados para su análisis.
+### Activar el Ciclo
+1. Busque el ciclo creado en estado borrador.
+2. Presione el botón **Activar**.
+3. **Importante:** Solo puede haber un (1) ciclo activo a la vez en la plataforma. Al activarlo, se habilitarán las evaluaciones de manera inmediata para todo el personal.
 
----
-
-## 4. Análisis y Reportes Finales
-
-Mientras un ciclo está activo o una vez cerrado, el Administrador puede revisar el progreso de cada empleado.
-
-1. En el Panel de Administrador, seleccione a un empleado específico para ver su reporte.
-2. **Resultados mostrados:**
-   - **Autoevaluación:** Promedio de las calificaciones que el empleado se dio a sí mismo.
-   - **Evaluación Colectiva:** Promedio de las calificaciones que le otorgaron sus compañeros y líderes.
-   - **Desglose por Categoría:** Una tabla detallando el puntaje obtenido en cada área (Liderazgo, Trabajo en Equipo, etc.) comparando cómo se percibe el empleado vs. cómo lo percibe el resto.
-3. **Puntuación Final y Comentarios:**
-   El administrador tiene la potestad de escribir un resumen cualitativo y asignar la "Calificación Final" basada en los promedios. Guarde los cambios al terminar.
+### Cerrar el Ciclo
+1. Una vez transcurrido el plazo para evaluar, busque el ciclo activo y haga clic en **Cerrar Ciclo**.
+2. Al cerrar el ciclo, el sistema **bloquea** el ingreso de nuevas evaluaciones y consolida de forma definitiva los promedios y reportes para su análisis.
 
 ---
 
-## 5. Exportar a PDF
+## 4. Análisis de Resultados y Reportes
 
-Para generar el reporte impreso o en PDF para el expediente del empleado:
-1. Abra el reporte final de un empleado.
-2. Haga clic en el botón **Imprimir / Exportar a PDF** situado en la esquina superior.
-3. El sistema ocultará los botones y la navegación para mostrar una vista limpia de reporte corporativo.
-4. Utilice el diálogo de impresión de su navegador web y seleccione "Guardar como PDF".
+Durante un ciclo activo o una vez finalizado, usted podrá ingresar a la ficha de cada colaborador desde la tabla general de resultados.
+
+### Estructura del Reporte
+* **Autoevaluación (Self):** Muestra la percepción que el empleado tiene de su propio trabajo.
+* **Evaluación Colectiva (Peer/Upward):** Muestra el promedio consolidado y anónimo de las evaluaciones que sus compañeros (y usted) le realizaron.
+* **Gráfico y Desglose por Competencia:** Tabla comparativa por categorías (Orientación a Resultados, Liderazgo, Trabajo en Equipo, etc.) que contrasta la autoevaluación vs. la evaluación colectiva.
+
+### Calificación Final y Comentarios del Admin
+1. En la parte inferior del reporte de cada empleado, encontrará la sección de **Evaluación de la Dirección**.
+2. Analice los promedios y redacte una **Retroalimentación Cualitativa** constructiva.
+3. Seleccione una **Calificación Final** (ej: *Sobresaliente, Cumple con las expectativas, Requiere mejora*).
+4. Guarde los cambios para congelar la evaluación formal del colaborador.
+
+---
+
+## 5. Descarga y Exportación (Excel y PDF)
+
+### Exportar Datos a Excel / CSV
+Para descargar la información consolidada de todos los colaboradores del ciclo y poder analizarla en Excel:
+1. Diríjase al **Dashboard Admin**.
+2. Haga clic en el botón **Exportar CSV** ubicado en la sección del listado general.
+3. El sistema descargará un archivo en formato `.csv` con los datos clave del progreso y las calificaciones de los colaboradores, el cual puede ser abierto directamente en Excel para generar gráficos o tablas dinámicas.
+
+### Exportar Reporte Individual a PDF
+Para almacenar físicamente la evaluación o adjuntarla al expediente digital del colaborador:
+1. Abra el reporte final del colaborador.
+2. Presione el botón **Imprimir / Exportar a PDF** en la esquina superior derecha.
+3. El sistema optimizará el diseño automáticamente, ocultando botones, barras de navegación y menús innecesarios para entregar un documento formal y limpio.
+4. En el cuadro de diálogo de impresión de su navegador, seleccione la opción **Guardar como PDF** o **Save as PDF**.
+

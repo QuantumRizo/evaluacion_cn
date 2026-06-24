@@ -60,6 +60,13 @@ export interface FinalReport {
   is_exported: boolean;
 }
 
+export interface EvaluationAssignment {
+  $id: string;
+  cycle_id: string;
+  evaluated_id: string;
+  evaluator_id: string;
+}
+
 /** Score breakdown per category used in reporting */
 export interface CategoryScore {
   category: string;

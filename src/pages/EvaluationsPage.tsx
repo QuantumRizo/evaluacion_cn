@@ -96,10 +96,20 @@ export default function EvaluationsPage() {
 
       if (!activeCycle || !currentEmployee) return;
 
-      const allEmployees = await fetchAllDocuments<Employee>(
-        COLLECTIONS.EMPLOYEES,
-        [Query.notEqual('$id', currentEmployee.$id)]
+      const myAssignments = await fetchAllDocuments<any>(
+        COLLECTIONS.EVALUATION_ASSIGNMENTS,
+        [
+          Query.equal('cycle_id', activeCycle.$id),
+          Query.equal('evaluator_id', currentEmployee.$id),
+        ]
       );
+      const assignedIds = myAssignments.map((a) => a.evaluated_id);
+
+      let assignedEmployees: Employee[] = [];
+      if (assignedIds.length > 0) {
+        const allEmps = await fetchAllDocuments<Employee>(COLLECTIONS.EMPLOYEES);
+        assignedEmployees = allEmps.filter(e => assignedIds.includes(e.$id));
+      }
 
       const myResponses = await fetchAllDocuments<{ evaluated_id: string }>(
         COLLECTIONS.RESPONSES,
@@ -113,7 +123,7 @@ export default function EvaluationsPage() {
       setSelfDone(evaluatedIds.has(currentEmployee.$id));
 
       setEmployees(
-        allEmployees.map((e) => ({ ...e, evaluated: evaluatedIds.has(e.$id) }))
+        assignedEmployees.map((e) => ({ ...e, evaluated: evaluatedIds.has(e.$id) }))
       );
     } catch (err) {
       console.error(err);
