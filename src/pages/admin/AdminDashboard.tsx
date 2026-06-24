@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { databases, fetchAllDocuments, Query } from '../../lib/appwrite';
+import { databases, fetchAllDocuments, Query, functions } from '../../lib/appwrite';
 import { ID } from 'appwrite';
 import { DB_ID, COLLECTIONS } from '../../lib/constants';
 import Navbar from '../../components/Navbar';
@@ -220,7 +220,7 @@ function CyclesTab({
       const newId = ID.unique();
       await databases.createDocument(DB_ID, COLLECTIONS.EVALUATION_CYCLES, newId, {
         name: name.trim(),
-        status: 'draft',
+        status: 'active',
         start_date: startDate || undefined,
         end_date: endDate || undefined,
       });
@@ -264,6 +264,22 @@ function CyclesTab({
     } catch (err) { console.error(err); }
   }
 
+  async function deleteCycle(cycleId: string) {
+    if (!window.confirm('¿Estás seguro de que deseas eliminar este ciclo? Todas las asignaciones se perderán.')) return;
+    try {
+      await databases.deleteDocument(DB_ID, COLLECTIONS.EVALUATION_CYCLES, cycleId);
+      // Delete related assignments
+      const assignmentsResponse = await databases.listDocuments(DB_ID, COLLECTIONS.EVALUATION_ASSIGNMENTS, [Query.equal('cycle_id', cycleId)]);
+      for (const a of assignmentsResponse.documents) {
+        await databases.deleteDocument(DB_ID, COLLECTIONS.EVALUATION_ASSIGNMENTS, a.$id);
+      }
+      if (selectedCycle?.$id === cycleId) {
+        setSelectedCycle(null);
+      }
+      onRefresh();
+    } catch (err) { console.error(err); }
+  }
+
   return (
     <div className="grid md:grid-cols-12 gap-6 h-[700px]">
       {/* Left: Cycles List */}
@@ -302,7 +318,7 @@ function CyclesTab({
             <button
               key={c.$id}
               onClick={() => { setSelectedCycle(c); setShowCreate(false); setEditing(false); }}
-              className={`w-full text-left p-3 rounded-xl transition-all ${selectedCycle?.$id === c.$id ? 'bg-primary-50 border border-primary-200 shadow-sm' : 'hover:bg-surface-50 border border-transparent'}`}
+              className={`w-full text-left p-3 rounded-xl transition-all duration-200 ${selectedCycle?.$id === c.$id ? 'bg-primary-50 border border-primary-300 shadow-md' : 'hover:bg-white hover:shadow-md hover:-translate-y-0.5 hover:border-primary-200 border border-transparent'}`}
             >
               <div className="flex justify-between items-start mb-1">
                 <p className={`font-medium text-sm ${selectedCycle?.$id === c.$id ? 'text-primary-800' : 'text-surface-800'}`}>{c.name}</p>
@@ -355,6 +371,7 @@ function CyclesTab({
                     {selectedCycle.status === 'draft' && <button onClick={() => setStatus(selectedCycle.$id, 'active')} className="px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg text-xs font-medium hover:bg-green-100">Activar ciclo</button>}
                     {selectedCycle.status === 'active' && <button onClick={() => setStatus(selectedCycle.$id, 'closed')} className="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-xs font-medium hover:bg-amber-100">Cerrar ciclo</button>}
                     {selectedCycle.status === 'closed' && <button onClick={() => setStatus(selectedCycle.$id, 'active')} className="px-3 py-1.5 bg-surface-100 text-surface-700 rounded-lg text-xs font-medium hover:bg-surface-200">Reabrir</button>}
+                    <button onClick={() => deleteCycle(selectedCycle.$id)} className="px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-medium hover:bg-red-100">Eliminar</button>
                   </div>
                 </div>
               )}
@@ -413,17 +430,38 @@ function CycleAssignments({ cycle, allEmployees }: { cycle: EvaluationCycle; all
     if (!selectedEvaluated) return;
     setSaving(true);
     try {
+      console.log(`Guardando asignaciones para: ${selectedEvaluated.name}`);
       const existing = assignments.filter((a) => a.evaluated_id === selectedEvaluated.$id);
       for (const a of existing) await databases.deleteDocument(DB_ID, COLLECTIONS.EVALUATION_ASSIGNMENTS, a.$id);
       
-      for (const evaluatorId of Array.from(selectedEvaluatorIds)) {
+      const evaluatorsToAssign = Array.from(selectedEvaluatorIds);
+      if (!evaluatorsToAssign.includes(selectedEvaluated.$id)) {
+        evaluatorsToAssign.push(selectedEvaluated.$id);
+      }
+      
+      for (const evaluatorId of evaluatorsToAssign) {
         await databases.createDocument(DB_ID, COLLECTIONS.EVALUATION_ASSIGNMENTS, ID.unique(), {
           cycle_id: cycle.$id,
           evaluated_id: selectedEvaluated.$id,
           evaluator_id: evaluatorId,
         });
       }
+      
+      // Llamar a la función para correos en lote
+      try {
+        console.log('Enviando correos en lote vía Appwrite Functions...');
+        const payload = JSON.stringify({
+          cycle_id: cycle.$id,
+          evaluated_id: selectedEvaluated.$id,
+          evaluator_ids: evaluatorsToAssign
+        });
+        await functions.createExecution('send_assignment_email', payload, false, '/', 'POST' as any);
+      } catch (funcErr) {
+        console.error('Error invocando función de correos:', funcErr);
+      }
+
       setSaved(true);
+      console.log(`✅ Se crearon ${evaluatorsToAssign.length} asignaciones en la base de datos y se notificaron.`);
       await loadAssignments();
     } catch (err) { console.error(err); }
     finally { setSaving(false); }
@@ -433,34 +471,56 @@ function CycleAssignments({ cycle, allEmployees }: { cycle: EvaluationCycle; all
 
   const candidates = allEmployees.filter((e) => e.$id !== selectedEvaluated?.$id);
 
+  let hasChanges = false;
+  let hasEvaluatorsSaved = false;
+
+  if (selectedEvaluated) {
+    const currentFromDB = assignments
+      .filter((a) => a.evaluated_id === selectedEvaluated.$id)
+      .map((a) => a.evaluator_id);
+    
+    if (currentFromDB.length > 0) hasEvaluatorsSaved = true;
+
+    const evaluatorsToAssign = Array.from(selectedEvaluatorIds);
+    if (!evaluatorsToAssign.includes(selectedEvaluated.$id)) {
+      evaluatorsToAssign.push(selectedEvaluated.$id);
+    }
+    
+    if (evaluatorsToAssign.length !== currentFromDB.length) {
+      hasChanges = true;
+    } else {
+      hasChanges = evaluatorsToAssign.some(id => !currentFromDB.includes(id));
+    }
+  }
+
   return (
-    <div className="flex h-full divide-x divide-surface-200">
+    <div className="flex flex-col md:flex-row h-full divide-y md:divide-y-0 md:divide-x divide-surface-200">
       {/* List of everyone, to choose who to evaluate */}
-      <div className="w-1/2 flex flex-col h-full bg-white">
-        <div className="p-3 border-b border-surface-100 bg-surface-50/50">
-          <p className="text-xs font-semibold text-surface-600 uppercase tracking-wide">1. ¿A quién evaluar en este ciclo?</p>
+      <div className="w-full md:w-1/2 flex flex-col h-1/2 md:h-full bg-white">
+        <div className="p-4 border-b border-surface-100 bg-surface-50/50 shrink-0">
+          <p className="text-xs font-bold text-surface-600 uppercase tracking-wider">1. ¿A quién evaluar en este ciclo?</p>
+          <p className="text-xs text-surface-400 mt-1">Selecciona a un colaborador para asignarle sus evaluadores.</p>
         </div>
-        <div className="overflow-y-auto flex-1 p-2 space-y-1">
+        <div className="overflow-y-auto flex-1 p-3 space-y-2">
           {allEmployees.map(emp => {
             const isSelected = selectedEvaluated?.$id === emp.$id;
-            const count = assignments.filter((a) => a.evaluated_id === emp.$id).length;
-            const isInCycle = count > 0;
+            const count = assignments.filter((a) => a.evaluated_id === emp.$id && a.evaluator_id !== emp.$id).length;
+            const hasSelfEval = assignments.some(a => a.evaluated_id === emp.$id && a.evaluator_id === emp.$id);
+            const isInCycle = count > 0 || hasSelfEval;
             return (
               <button
                 key={emp.$id}
                 onClick={() => selectEmployee(emp)}
-                className={`w-full text-left p-3 rounded-xl flex items-center justify-between transition-colors ${
-                  isSelected ? 'bg-primary-50 border border-primary-200' : 'hover:bg-surface-50 border border-transparent'
+                className={`w-full text-left p-3.5 rounded-xl flex items-center justify-between transition-all duration-200 ${
+                  isSelected ? 'bg-primary-50 border-primary-300 shadow-md border' : 'hover:bg-white hover:shadow-md hover:-translate-y-0.5 hover:border-primary-200 border-transparent border'
                 }`}
               >
                 <div>
                   <p className={`text-sm font-medium ${isSelected ? 'text-primary-800' : 'text-surface-700'}`}>{emp.name}</p>
-                  <p className="text-[11px] text-surface-400">{emp.department ?? 'Sin área'}</p>
+                  <p className="text-[11px] text-surface-400 uppercase tracking-wide mt-0.5">{emp.department ?? 'Sin área'}</p>
                 </div>
-                {isInCycle ? (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">{count} evaluadores</span>
-                ) : (
-                  <span className="text-[10px] text-surface-300 border border-surface-200 px-2 py-0.5 rounded">No participa</span>
+                {isInCycle && (
+                  <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-green-100 text-green-700">{count} evaluadores</span>
                 )}
               </button>
             );
@@ -469,34 +529,57 @@ function CycleAssignments({ cycle, allEmployees }: { cycle: EvaluationCycle; all
       </div>
 
       {/* Select Evaluators for the chosen person */}
-      <div className="w-1/2 flex flex-col h-full bg-surface-50">
+      <div className="w-full md:w-1/2 flex flex-col h-1/2 md:h-full bg-surface-50">
         {!selectedEvaluated ? (
-          <div className="m-auto text-center p-6 text-surface-400 text-sm">
-            Selecciona un colaborador a la izquierda para asignarle evaluadores en este ciclo.
+          <div className="m-auto text-center p-8">
+            <div className="w-12 h-12 bg-surface-200 rounded-full flex items-center justify-center mx-auto mb-3">
+              <svg className="w-6 h-6 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" /></svg>
+            </div>
+            <p className="text-surface-500 text-sm">Selecciona un colaborador a la izquierda para empezar.</p>
           </div>
         ) : (
           <>
-            <div className="p-3 border-b border-surface-200 bg-white flex items-center justify-between">
-              <p className="text-xs font-semibold text-surface-800">
-                2. ¿Quién evaluará a <span className="text-primary-600">{selectedEvaluated.name.split(' ')[0]}</span>?
-              </p>
-              <button onClick={saveAssignments} disabled={saving} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${saved && !saving ? 'bg-green-500 text-white' : 'bg-primary-500 text-white hover:bg-primary-600'} disabled:opacity-50`}>
-                {saving ? 'Guardando...' : saved ? 'Guardado' : 'Guardar y notificar'}
+            <div className="p-4 border-b border-surface-200 bg-white flex flex-col gap-3 shrink-0">
+              <div>
+                <p className="text-xs font-bold text-surface-800 uppercase tracking-wider">
+                  2. ¿Quién evaluará a <span className="text-primary-600">{selectedEvaluated.name.split(' ')[0]}</span>?
+                </p>
+                <p className="text-xs text-surface-500 mt-1">La autoevaluación se genera automáticamente.</p>
+              </div>
+              <button 
+                onClick={saveAssignments} 
+                disabled={saving || (!hasChanges && hasEvaluatorsSaved)} 
+                className={`w-full py-2 rounded-xl text-sm font-medium transition-colors shadow-sm ${
+                  !hasChanges && hasEvaluatorsSaved ? 'bg-surface-200 text-surface-500 cursor-not-allowed' :
+                  saved && !saving ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-primary-500 text-white hover:bg-primary-600'
+                } disabled:opacity-50`}
+              >
+                {saving ? 'Guardando...' : 
+                 !hasChanges && hasEvaluatorsSaved ? 'Asignaciones sin cambios' : 
+                 saved ? '¡Guardado!' : 'Guardar y notificar'}
               </button>
             </div>
-            <div className="overflow-y-auto flex-1 p-2 space-y-1">
+            <div className="overflow-y-auto flex-1 p-3 space-y-2">
               {candidates.map(emp => {
                 const isChecked = selectedEvaluatorIds.has(emp.$id);
                 return (
-                  <label key={emp.$id} className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors border ${isChecked ? 'bg-white border-primary-200 shadow-sm' : 'hover:bg-white border-transparent'}`}>
+                  <label key={emp.$id} className={`flex items-center gap-3 p-3.5 rounded-xl cursor-pointer transition-all duration-200 border ${isChecked ? 'bg-white border-primary-300 shadow-md' : 'bg-surface-50/50 border-surface-200 hover:bg-white hover:shadow-md hover:-translate-y-0.5 hover:border-primary-200'}`}>
                     <input type="checkbox" className="hidden" checked={isChecked} onChange={() => toggleEvaluator(emp.$id)} />
-                    <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${isChecked ? 'bg-primary-500 border-primary-500' : 'bg-white border-surface-300'}`}>
-                      {isChecked && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                    <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-colors ${isChecked ? 'bg-primary-500 border-primary-500' : 'bg-white border-surface-300'}`}>
+                      {isChecked && <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                     </div>
-                    <span className={`text-sm ${isChecked ? 'font-medium text-surface-800' : 'text-surface-600'}`}>{emp.name}</span>
+                    <div>
+                      <span className={`text-sm block ${isChecked ? 'font-medium text-surface-800' : 'text-surface-600'}`}>{emp.name}</span>
+                      <span className="text-[10px] text-surface-400 uppercase tracking-wide">{emp.department ?? 'Sin área'}</span>
+                    </div>
                   </label>
                 );
               })}
+              {candidates.length === 0 && (
+                <div className="py-10 text-center text-surface-400 text-sm">
+                  No hay otros colaboradores disponibles.
+                </div>
+              )}
             </div>
           </>
         )}

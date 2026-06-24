@@ -77,6 +77,10 @@ export default function EvaluationsPage() {
         Query.equal('evaluated_id', currentEmployee.$id)
       ]);
 
+      console.log('[DEBUG] currentEmployee:', currentEmployee);
+      console.log('[DEBUG] asEvaluator:', asEvaluator);
+      console.log('[DEBUG] asEvaluated:', asEvaluated);
+
       // 4. Get my past responses to know what's done
       const myResponses = await fetchAllDocuments<Response>(COLLECTIONS.RESPONSES, [
         Query.equal('evaluator_id', currentEmployee.$id)
@@ -103,7 +107,7 @@ export default function EvaluationsPage() {
         }
 
         // Did I get assigned to evaluate peers in this cycle?
-        const myPeerAssignments = asEvaluator.filter(a => a.cycle_id === cycle.$id);
+        const myPeerAssignments = asEvaluator.filter(a => a.cycle_id === cycle.$id && a.evaluated_id !== currentEmployee.$id);
         for (const a of myPeerAssignments) {
           const done = myResponses.some(r => r.cycle_id === cycle.$id && r.evaluated_id === a.evaluated_id);
           const targetEmployee = allEmps.find(e => e.$id === a.evaluated_id);

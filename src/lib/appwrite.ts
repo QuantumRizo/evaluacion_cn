@@ -1,4 +1,4 @@
-import { Client, Account, Databases, Query } from 'appwrite';
+import { Client, Account, Databases, Query, Functions } from 'appwrite';
 import { DB_ID } from './constants';
 
 const client = new Client();
@@ -9,6 +9,7 @@ client
 
 export const account = new Account(client);
 export const databases = new Databases(client);
+export const functions = new Functions(client);
 export { Query };
 
 /**
