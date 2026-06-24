@@ -8,7 +8,6 @@ import EvaluationsPage from './pages/EvaluationsPage';
 import EvaluationFormPage from './pages/EvaluationFormPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminReportPage from './pages/admin/AdminReportPage';
-import AdminAssignmentsPage from './pages/admin/AdminAssignmentsPage';
 
 function RootRedirect() {
   const { user, employee, isLoading, isAdmin } = useAuth();
@@ -48,14 +47,6 @@ function AppRoutes() {
         element={
           <ProtectedRoute requireAdmin>
             <AdminDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/asignaciones/:cycleId"
-        element={
-          <ProtectedRoute requireAdmin>
-            <AdminAssignmentsPage />
           </ProtectedRoute>
         }
       />
