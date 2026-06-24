@@ -10,7 +10,7 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import type { Employee, EvaluationCycle, Question, Response, FinalReport, CategoryScore } from '../../types';
 
 export default function AdminReportPage() {
-  const { employeeId } = useParams<{ employeeId: string }>();
+  const { cycleId, employeeId } = useParams<{ cycleId: string; employeeId: string }>();
   const navigate = useNavigate();
 
   const [employee, setEmployee] = useState<Employee | null>(null);
@@ -68,35 +68,30 @@ export default function AdminReportPage() {
   }).filter((c) => c.questionCount > 0);
 
   useEffect(() => {
-    if (employeeId) loadData();
+    if (employeeId && cycleId) loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [employeeId]);
+  }, [employeeId, cycleId]);
 
   async function loadData() {
     try {
-      const [empDoc, cycleResult, allQuestions] = await Promise.all([
+      const [empDoc, cycleDoc, allQuestions] = await Promise.all([
         databases.getDocument(DB_ID, COLLECTIONS.EMPLOYEES, employeeId!),
-        databases.listDocuments(DB_ID, COLLECTIONS.EVALUATION_CYCLES, [
-          Query.equal('status', 'active'), Query.limit(1),
-        ]),
+        databases.getDocument(DB_ID, COLLECTIONS.EVALUATION_CYCLES, cycleId!),
         fetchAllDocuments<Question>(COLLECTIONS.QUESTIONS, [Query.orderAsc('order')]),
       ]);
 
       setEmployee(empDoc as unknown as Employee);
+      setCycle(cycleDoc as unknown as EvaluationCycle);
       setQuestions(allQuestions);
-
-      if (cycleResult.documents.length === 0) return;
-      const activeCycle = cycleResult.documents[0] as unknown as EvaluationCycle;
-      setCycle(activeCycle);
 
       const [allResponses, reportResult] = await Promise.all([
         fetchAllDocuments<Response>(COLLECTIONS.RESPONSES, [
           Query.equal('evaluated_id', employeeId!),
-          Query.equal('cycle_id', activeCycle.$id),
+          Query.equal('cycle_id', cycleId!),
         ]),
         databases.listDocuments(DB_ID, COLLECTIONS.FINAL_REPORTS, [
           Query.equal('employee_id', employeeId!),
-          Query.equal('cycle_id', activeCycle.$id),
+          Query.equal('cycle_id', cycleId!),
           Query.limit(1),
         ]),
       ]);

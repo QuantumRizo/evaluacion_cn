@@ -33,7 +33,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/evaluar/:evaluatedId"
+        path="/evaluar/:cycleId/:evaluatedId"
         element={
           <ProtectedRoute>
             <EvaluationFormPage />
@@ -51,7 +51,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/admin/reporte/:employeeId"
+        path="/admin/reporte/:cycleId/:employeeId"
         element={
           <ProtectedRoute requireAdmin>
             <AdminReportPage />

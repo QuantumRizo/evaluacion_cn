@@ -11,7 +11,7 @@ import type { Employee, EvaluationCycle, Question } from '../types';
 type Answers = Record<string, number>;
 
 export default function EvaluationFormPage() {
-  const { evaluatedId } = useParams<{ evaluatedId: string }>();
+  const { cycleId, evaluatedId } = useParams<{ cycleId: string; evaluatedId: string }>();
   const { employee: currentEmployee } = useAuth();
   const navigate = useNavigate();
 
@@ -37,23 +37,15 @@ export default function EvaluationFormPage() {
       const empDoc = await databases.getDocument(DB_ID, COLLECTIONS.EMPLOYEES, evaluatedId!);
       setEvaluatedEmployee(empDoc as unknown as Employee);
 
-      // Get active cycle
-      const cycleResult = await databases.listDocuments(DB_ID, COLLECTIONS.EVALUATION_CYCLES, [
-        Query.equal('status', 'active'),
-        Query.limit(1),
-      ]);
-      if (cycleResult.documents.length === 0) {
-        navigate('/evaluaciones');
-        return;
-      }
-      const activeCycle = cycleResult.documents[0] as unknown as EvaluationCycle;
-      setCycle(activeCycle);
+      // Get specific cycle
+      const cycleDoc = await databases.getDocument(DB_ID, COLLECTIONS.EVALUATION_CYCLES, cycleId!);
+      setCycle(cycleDoc as unknown as EvaluationCycle);
 
       // Check if already evaluated
       const existing = await databases.listDocuments(DB_ID, COLLECTIONS.RESPONSES, [
         Query.equal('evaluator_id', currentEmployee!.$id),
         Query.equal('evaluated_id', evaluatedId!),
-        Query.equal('cycle_id', activeCycle.$id),
+        Query.equal('cycle_id', cycleId!),
         Query.limit(1),
       ]);
       if (existing.total > 0) {
