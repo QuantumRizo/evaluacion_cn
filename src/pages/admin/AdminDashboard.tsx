@@ -426,11 +426,11 @@ function CycleAssignments({ cycle, allEmployees }: { cycle: EvaluationCycle; all
     setSaved(false);
   }
 
-  async function saveAssignments() {
+  async function saveAssignments(notify: boolean) {
     if (!selectedEvaluated) return;
     setSaving(true);
     try {
-      console.log(`Guardando asignaciones para: ${selectedEvaluated.name}`);
+      console.log(`Guardando asignaciones para: ${selectedEvaluated.name} (notify=${notify})`);
       const existing = assignments.filter((a) => a.evaluated_id === selectedEvaluated.$id);
       for (const a of existing) await databases.deleteDocument(DB_ID, COLLECTIONS.EVALUATION_ASSIGNMENTS, a.$id);
       
@@ -447,21 +447,23 @@ function CycleAssignments({ cycle, allEmployees }: { cycle: EvaluationCycle; all
         });
       }
       
-      // Llamar a la función para correos en lote
-      try {
-        console.log('Enviando correos en lote vía Appwrite Functions...');
-        const payload = JSON.stringify({
-          cycle_id: cycle.$id,
-          evaluated_id: selectedEvaluated.$id,
-          evaluator_ids: evaluatorsToAssign
-        });
-        await functions.createExecution('send_assignment_email', payload, false, '/', 'POST' as any);
-      } catch (funcErr) {
-        console.error('Error invocando función de correos:', funcErr);
+      if (notify) {
+        // Llamar a la función para correos en lote
+        try {
+          console.log('Enviando correos en lote vía Appwrite Functions...');
+          const payload = JSON.stringify({
+            cycle_id: cycle.$id,
+            evaluated_id: selectedEvaluated.$id,
+            evaluator_ids: evaluatorsToAssign
+          });
+          await functions.createExecution('send_assignment_email', payload, false, '/', 'POST' as any);
+        } catch (funcErr) {
+          console.error('Error invocando función de correos:', funcErr);
+        }
       }
 
       setSaved(true);
-      console.log(`✅ Se crearon ${evaluatorsToAssign.length} asignaciones en la base de datos y se notificaron.`);
+      console.log(`✅ Se crearon ${evaluatorsToAssign.length} asignaciones${notify ? ' y se notificaron' : ' (sin notificación)'}`);
       await loadAssignments();
     } catch (err) { console.error(err); }
     finally { setSaving(false); }
@@ -546,18 +548,34 @@ function CycleAssignments({ cycle, allEmployees }: { cycle: EvaluationCycle; all
                 </p>
                 <p className="text-xs text-surface-500 mt-1">La autoevaluación se genera automáticamente.</p>
               </div>
-              <button 
-                onClick={saveAssignments} 
-                disabled={saving || (!hasChanges && hasEvaluatorsSaved)} 
-                className={`w-full py-2 rounded-xl text-sm font-medium transition-colors shadow-sm ${
-                  !hasChanges && hasEvaluatorsSaved ? 'bg-surface-200 text-surface-500 cursor-not-allowed' :
-                  saved && !saving ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-primary-500 text-white hover:bg-primary-600'
-                } disabled:opacity-50`}
-              >
-                {saving ? 'Guardando...' : 
-                 !hasChanges && hasEvaluatorsSaved ? 'Asignaciones sin cambios' : 
-                 saved ? '¡Guardado!' : 'Guardar y notificar'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => saveAssignments(false)}
+                  disabled={saving || (!hasChanges && hasEvaluatorsSaved)}
+                  className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors border ${
+                    !hasChanges && hasEvaluatorsSaved
+                      ? 'bg-surface-100 text-surface-400 border-surface-200 cursor-not-allowed'
+                      : saved && !saving
+                      ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                      : 'bg-white text-surface-700 border-surface-300 hover:bg-surface-50 hover:border-primary-300'
+                  } disabled:opacity-50`}
+                >
+                  {saving ? '...' : !hasChanges && hasEvaluatorsSaved ? 'Sin cambios' : saved ? '¡Guardado!' : 'Guardar'}
+                </button>
+                <button
+                  onClick={() => saveAssignments(true)}
+                  disabled={saving || (!hasChanges && hasEvaluatorsSaved)}
+                  className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm ${
+                    !hasChanges && hasEvaluatorsSaved
+                      ? 'bg-surface-200 text-surface-500 cursor-not-allowed'
+                      : saved && !saving
+                      ? 'bg-green-500 text-white hover:bg-green-600'
+                      : 'bg-primary-500 text-white hover:bg-primary-600'
+                  } disabled:opacity-50`}
+                >
+                  {saving ? 'Guardando...' : !hasChanges && hasEvaluatorsSaved ? 'Sin cambios' : saved ? '¡Guardado!' : 'Guardar y notificar'}
+                </button>
+              </div>
             </div>
             <div className="overflow-y-auto flex-1 p-3 space-y-2">
               {candidates.map(emp => {
