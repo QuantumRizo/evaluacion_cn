@@ -87,7 +87,7 @@ export default function EvaluationsPage() {
       ]);
 
       // 5. Get all employees to display names
-      const allEmps = await fetchAllDocuments<Employee>(COLLECTIONS.EMPLOYEES);
+      const allEmps = await fetchAllDocuments<Employee>(COLLECTIONS.EMPLOYEES, [Query.orderAsc('name')]);
 
       const generatedTasks: Task[] = [];
 
