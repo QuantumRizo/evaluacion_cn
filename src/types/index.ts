@@ -49,6 +49,15 @@ export interface Response {
   evaluation_type: EvaluationType;
 }
 
+export interface EvaluationComment {
+  $id: string;
+  cycle_id: string;
+  evaluator_id: string;
+  evaluated_id: string;
+  evaluation_type: EvaluationType;
+  comment: string;
+}
+
 export interface FinalReport {
   $id: string;
   cycle_id: string;

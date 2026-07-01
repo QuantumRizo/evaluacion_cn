@@ -6,7 +6,7 @@ import { DB_ID, COLLECTIONS, SCORE_OPTIONS, CATEGORY_ORDER, CATEGORY_LABELS } fr
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import LoadingSpinner from '../components/LoadingSpinner';
-import type { Employee, EvaluationCycle, Question } from '../types';
+import type { Employee, EvaluationCycle, Question, EvaluationComment } from '../types';
 
 type Answers = Record<string, number>;
 
@@ -19,10 +19,15 @@ export default function EvaluationFormPage() {
   const [cycle, setCycle] = useState<EvaluationCycle | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Answers>({});
+  const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [submittingComment, setSubmittingComment] = useState(false);
   const [alreadyDone, setAlreadyDone] = useState(false);
+  const [alreadyCommented, setAlreadyCommented] = useState(false);
+  const [existingCommentDoc, setExistingCommentDoc] = useState<EvaluationComment | null>(null);
   const [error, setError] = useState('');
+  const [commentSaved, setCommentSaved] = useState(false);
 
   const isSelf = evaluatedId === currentEmployee?.$id;
 
@@ -48,8 +53,25 @@ export default function EvaluationFormPage() {
         Query.equal('cycle_id', cycleId!),
         Query.limit(1),
       ]);
+
       if (existing.total > 0) {
         setAlreadyDone(true);
+
+        // Check if they already left a comment
+        const existingComment = await databases.listDocuments(DB_ID, COLLECTIONS.EVALUATION_COMMENTS, [
+          Query.equal('evaluator_id', currentEmployee!.$id),
+          Query.equal('evaluated_id', evaluatedId!),
+          Query.equal('cycle_id', cycleId!),
+          Query.limit(1),
+        ]);
+
+        if (existingComment.total > 0) {
+          const doc = existingComment.documents[0] as unknown as EvaluationComment;
+          setAlreadyCommented(true);
+          setExistingCommentDoc(doc);
+          setComment(doc.comment);
+        }
+
         setLoading(false);
         return;
       }
@@ -92,11 +114,57 @@ export default function EvaluationFormPage() {
           evaluation_type: evaluationType,
         });
       }
+
+      // Save comment if provided
+      if (comment.trim()) {
+        await databases.createDocument(DB_ID, COLLECTIONS.EVALUATION_COMMENTS, ID.unique(), {
+          cycle_id: cycle.$id,
+          evaluator_id: currentEmployee.$id,
+          evaluated_id: evaluatedId,
+          evaluation_type: evaluationType,
+          comment: comment.trim(),
+        });
+      }
+
       navigate('/evaluaciones', { state: { submitted: true } });
     } catch (err) {
       console.error(err);
       setError('Ocurrió un error al guardar. Intenta de nuevo.');
       setSubmitting(false);
+    }
+  }
+
+  async function handleSaveComment() {
+    if (!comment.trim() || !cycle || !currentEmployee) return;
+    setSubmittingComment(true);
+    setError('');
+
+    try {
+      const evaluationType = isSelf ? 'self' : 'peer';
+
+      if (existingCommentDoc) {
+        // Update existing comment
+        await databases.updateDocument(DB_ID, COLLECTIONS.EVALUATION_COMMENTS, existingCommentDoc.$id, {
+          comment: comment.trim(),
+        });
+      } else {
+        // Create new comment
+        await databases.createDocument(DB_ID, COLLECTIONS.EVALUATION_COMMENTS, ID.unique(), {
+          cycle_id: cycle.$id,
+          evaluator_id: currentEmployee.$id,
+          evaluated_id: evaluatedId,
+          evaluation_type: evaluationType,
+          comment: comment.trim(),
+        });
+      }
+
+      setCommentSaved(true);
+      setAlreadyCommented(true);
+    } catch (err) {
+      console.error(err);
+      setError('No se pudo guardar el comentario. Intenta de nuevo.');
+    } finally {
+      setSubmittingComment(false);
     }
   }
 
@@ -109,7 +177,8 @@ export default function EvaluationFormPage() {
 
   if (loading) return <div className="min-h-screen bg-surface-100 md:pl-64"><Navbar /><LoadingSpinner fullPage /></div>;
 
-  if (alreadyDone) {
+  // Already evaluated AND already left a comment → show completed screen
+  if (alreadyDone && alreadyCommented && !commentSaved) {
     return (
       <div className="min-h-screen bg-surface-100 md:pl-64">
         <Navbar />
@@ -123,11 +192,133 @@ export default function EvaluationFormPage() {
             Evaluación completada
           </h2>
           <p className="text-surface-400 text-sm mb-6">
-            Ya registraste tu evaluación para{' '}
+            Ya registraste tu evaluación y comentario para{' '}
             <strong className="text-surface-700">
               {isSelf ? 'ti mismo' : evaluatedEmployee?.name}
             </strong>{' '}
             en este ciclo.
+          </p>
+          {existingCommentDoc && (
+            <div className="bg-white border border-surface-200 rounded-2xl px-5 py-4 text-left mb-6">
+              <p className="text-xs text-surface-400 mb-1">Tu comentario</p>
+              <p className="text-sm text-surface-700 leading-relaxed">{existingCommentDoc.comment}</p>
+            </div>
+          )}
+          <button
+            onClick={() => navigate('/evaluaciones')}
+            className="px-5 py-2.5 rounded-xl bg-surface-800 text-white text-sm font-medium hover:bg-surface-900 transition-colors"
+          >
+            Volver a mis evaluaciones
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Already evaluated but NO comment yet → show comment-only form
+  if (alreadyDone && !commentSaved) {
+    return (
+      <div className="min-h-screen bg-surface-100 md:pl-64">
+        <Navbar />
+        <main className="max-w-2xl mx-auto px-6 py-10">
+          {/* Header */}
+          <div className="mb-8">
+            <button
+              onClick={() => navigate('/evaluaciones')}
+              className="flex items-center gap-1.5 text-xs text-surface-400 hover:text-surface-700 transition-colors mb-4"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Volver
+            </button>
+
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h1 className="text-2xl font-bold text-surface-800">
+                Evaluación ya enviada
+              </h1>
+            </div>
+            {!isSelf && evaluatedEmployee?.position && (
+              <span className="inline-flex items-center ml-11 mt-1 px-2.5 py-0.5 rounded-full bg-surface-200 text-surface-500 text-xs font-medium">
+                {evaluatedEmployee.position}
+              </span>
+            )}
+            <p className="text-surface-400 text-sm mt-1 ml-11">
+              Ya completaste la evaluación de{' '}
+              <strong className="text-surface-700">{isSelf ? 'ti mismo' : evaluatedEmployee?.name}</strong>.
+              Puedes dejar un comentario adicional a continuación.
+            </p>
+          </div>
+
+          {/* Comment only form */}
+          <div className="bg-white rounded-2xl border border-surface-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-surface-100">
+              <h3 className="text-sm font-semibold text-surface-800">Comentario abierto</h3>
+              <p className="text-xs text-surface-400 mt-0.5">Opcional — se guardará junto a tu evaluación</p>
+            </div>
+            <div className="px-6 py-5">
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Escribe aquí tus observaciones, contexto adicional o retroalimentación..."
+                rows={6}
+                maxLength={2000}
+                className="w-full resize-none rounded-xl border border-surface-200 bg-surface-50 px-4 py-3 text-sm text-surface-700 placeholder-surface-300 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-transparent transition-all"
+              />
+              <div className="flex items-center justify-between mt-2">
+                <p className="text-xs text-surface-300">{comment.length}/2000 caracteres</p>
+              </div>
+            </div>
+          </div>
+
+          {error && <p className="text-xs text-red-500 mt-3">{error}</p>}
+
+          <div className="mt-4 flex justify-end gap-3">
+            <button
+              onClick={() => navigate('/evaluaciones')}
+              className="px-5 py-2.5 rounded-xl border border-surface-200 text-surface-600 text-sm font-medium hover:bg-surface-100 transition-colors"
+            >
+              Omitir
+            </button>
+            <button
+              onClick={handleSaveComment}
+              disabled={!comment.trim() || submittingComment}
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-600 disabled:bg-surface-200 disabled:text-surface-400 text-white text-sm font-semibold transition-all duration-200"
+            >
+              {submittingComment ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                'Guardar comentario'
+              )}
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Comment just saved → show confirmation
+  if (commentSaved) {
+    return (
+      <div className="min-h-screen bg-surface-100 md:pl-64">
+        <Navbar />
+        <div className="max-w-lg mx-auto px-6 py-24 text-center">
+          <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+            <svg className="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-surface-800 mb-2">¡Comentario guardado!</h2>
+          <p className="text-surface-400 text-sm mb-6">
+            Tu comentario fue registrado exitosamente.
           </p>
           <button
             onClick={() => navigate('/evaluaciones')}
@@ -160,7 +351,12 @@ export default function EvaluationFormPage() {
           <h1 className="text-2xl font-bold text-surface-800">
             {isSelf ? 'Autoevaluación' : `Evaluando a ${evaluatedEmployee?.name}`}
           </h1>
-          <p className="text-surface-400 text-sm mt-1">
+          {!isSelf && evaluatedEmployee?.position && (
+            <span className="inline-flex items-center mt-1.5 px-2.5 py-0.5 rounded-full bg-surface-200 text-surface-500 text-xs font-medium">
+              {evaluatedEmployee.position}
+            </span>
+          )}
+          <p className="text-surface-400 text-sm mt-1.5">
             {isSelf
               ? 'Evalúa tu propio desempeño con honestidad y reflexión.'
               : `Evalúa el desempeño de ${evaluatedEmployee?.name} en el ciclo actual.`}
@@ -196,8 +392,27 @@ export default function EvaluationFormPage() {
           ))}
         </div>
 
+        {/* Open comment section */}
+        <div className="mt-6 bg-white rounded-2xl border border-surface-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-surface-100">
+            <h3 className="text-sm font-semibold text-surface-800">Comentario abierto</h3>
+            <p className="text-xs text-surface-400 mt-0.5">Opcional — observaciones adicionales sobre esta evaluación</p>
+          </div>
+          <div className="px-6 py-5">
+            <textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Escribe aquí tus observaciones, contexto adicional o retroalimentación..."
+              rows={5}
+              maxLength={2000}
+              className="w-full resize-none rounded-xl border border-surface-200 bg-surface-50 px-4 py-3 text-sm text-surface-700 placeholder-surface-300 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-transparent transition-all"
+            />
+            <p className="text-xs text-surface-300 mt-1.5">{comment.length}/2000 caracteres</p>
+          </div>
+        </div>
+
         {/* Submit */}
-        <div className="mt-8 flex flex-col items-end gap-3">
+        <div className="mt-6 flex flex-col items-end gap-3">
           {error && (
             <p className="text-xs text-red-500">{error}</p>
           )}

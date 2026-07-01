@@ -7,6 +7,7 @@ export const COLLECTIONS = {
   RESPONSES: 'responses',
   FINAL_REPORTS: 'final_reports',
   EVALUATION_ASSIGNMENTS: 'evaluation_assignments',
+  EVALUATION_COMMENTS: 'evaluation_comments',
 } as const;
 
 export const SCORE_OPTIONS = [
