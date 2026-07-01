@@ -22,6 +22,9 @@ export default function AdminReportPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  const [comments, setComments] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+
   const [adminSummary, setAdminSummary] = useState('');
   const [finalScore, setFinalScore] = useState<number | ''>('');
 
@@ -84,7 +87,7 @@ export default function AdminReportPage() {
       setCycle(cycleDoc as unknown as EvaluationCycle);
       setQuestions(allQuestions);
 
-      const [allResponses, reportResult] = await Promise.all([
+      const [allResponses, reportResult, allComments, allEmps] = await Promise.all([
         fetchAllDocuments<Response>(COLLECTIONS.RESPONSES, [
           Query.equal('evaluated_id', employeeId!),
           Query.equal('cycle_id', cycleId!),
@@ -94,9 +97,16 @@ export default function AdminReportPage() {
           Query.equal('cycle_id', cycleId!),
           Query.limit(1),
         ]),
+        fetchAllDocuments<any>(COLLECTIONS.EVALUATION_COMMENTS, [
+          Query.equal('evaluated_id', employeeId!),
+          Query.equal('cycle_id', cycleId!),
+        ]),
+        fetchAllDocuments<Employee>(COLLECTIONS.EMPLOYEES),
       ]);
 
       setResponses(allResponses);
+      setComments(allComments);
+      setEmployees(allEmps);
 
       if (reportResult.documents.length > 0) {
         const r = reportResult.documents[0] as unknown as FinalReport;
@@ -356,6 +366,66 @@ export default function AdminReportPage() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Full Responses and Comments Section */}
+          <div className="mt-12 pt-8 border-t border-surface-200">
+            <h2 className="text-xl font-bold text-surface-800 mb-6">Detalle de Respuestas y Comentarios</h2>
+            {employees.length > 0 && Array.from(new Set(responses.map(r => r.evaluator_id))).map(evaluatorId => {
+              const evaluator = employees.find(e => e.$id === evaluatorId);
+              if (!evaluator) return null;
+              
+              const isSelf = evaluator.$id === employeeId;
+              const evResponses = responses.filter(r => r.evaluator_id === evaluatorId);
+              const evComment = comments.find(c => c.evaluator_id === evaluatorId);
+
+              return (
+                <div key={evaluatorId} className="bg-white rounded-2xl border border-surface-200 p-6 mb-6" style={{ pageBreakInside: 'avoid' }}>
+                  <div className="flex items-center gap-3 mb-4 pb-4 border-b border-surface-100">
+                    <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
+                      <span className="text-sm font-bold text-primary-700">{evaluator.name.charAt(0).toUpperCase()}</span>
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-surface-800">
+                        {evaluator.name}
+                        {isSelf && <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-primary-100 text-primary-700">Autoevaluación</span>}
+                      </h3>
+                      <p className="text-xs text-surface-500">{evaluator.position ?? 'Sin puesto'} • {evaluator.department ?? 'Sin área'}</p>
+                    </div>
+                  </div>
+
+                  {evComment && (
+                    <div className="mb-6 bg-surface-50 border border-surface-100 rounded-xl p-4">
+                      <p className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">Comentario Adicional</p>
+                      <p className="text-sm text-surface-700 leading-relaxed whitespace-pre-wrap">{evComment.comment}</p>
+                    </div>
+                  )}
+
+                  <div>
+                    <p className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">Respuestas (0% a 100%)</p>
+                    <div className="space-y-3">
+                      {questions.map((q, idx) => {
+                        const resp = evResponses.find(r => r.question_id === q.$id);
+                        if (!resp) return null;
+                        const scorePct = Math.round(resp.score * 100);
+                        const color = scorePct >= 75 ? 'text-green-700 bg-green-50 border-green-200' :
+                                      scorePct >= 50 ? 'text-amber-700 bg-amber-50 border-amber-200' :
+                                      'text-red-700 bg-red-50 border-red-200';
+                        return (
+                          <div key={q.$id} className="flex gap-4 items-start py-2 border-b border-surface-50 last:border-0">
+                            <span className="text-surface-300 font-medium text-sm w-4 shrink-0">{idx + 1}.</span>
+                            <p className="text-sm text-surface-700 flex-1 leading-relaxed">{q.text}</p>
+                            <span className={`inline-block px-2 py-1 rounded-md text-xs font-bold border shrink-0 ${color}`}>
+                              {scorePct}%
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {/* Print-only signature section */}
