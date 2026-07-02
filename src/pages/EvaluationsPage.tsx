@@ -15,6 +15,8 @@ interface Task {
   cycle: EvaluationCycle;
   targetEmployee: Employee;
   done: boolean;
+  hasResponses: boolean;
+  hasComment: boolean;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -67,27 +69,14 @@ export default function EvaluationsPage() {
         return;
       }
 
-      // 2. Get assignments where I evaluate someone (peer)
-      const asEvaluator = await fetchAllDocuments<EvaluationAssignment>(COLLECTIONS.EVALUATION_ASSIGNMENTS, [
-        Query.equal('evaluator_id', currentEmployee.$id)
+      // Parallelize all 5 fetches
+      const [asEvaluator, asEvaluated, myResponses, myComments, allEmps] = await Promise.all([
+        fetchAllDocuments<EvaluationAssignment>(COLLECTIONS.EVALUATION_ASSIGNMENTS, [Query.equal('evaluator_id', currentEmployee.$id)]),
+        fetchAllDocuments<EvaluationAssignment>(COLLECTIONS.EVALUATION_ASSIGNMENTS, [Query.equal('evaluated_id', currentEmployee.$id)]),
+        fetchAllDocuments<Response>(COLLECTIONS.RESPONSES, [Query.equal('evaluator_id', currentEmployee.$id)]),
+        fetchAllDocuments<any>(COLLECTIONS.EVALUATION_COMMENTS, [Query.equal('evaluator_id', currentEmployee.$id)]),
+        fetchAllDocuments<Employee>(COLLECTIONS.EMPLOYEES, [Query.orderAsc('name')])
       ]);
-
-      // 3. Get assignments where someone evaluates me (self)
-      const asEvaluated = await fetchAllDocuments<EvaluationAssignment>(COLLECTIONS.EVALUATION_ASSIGNMENTS, [
-        Query.equal('evaluated_id', currentEmployee.$id)
-      ]);
-
-      console.log('[DEBUG] currentEmployee:', currentEmployee);
-      console.log('[DEBUG] asEvaluator:', asEvaluator);
-      console.log('[DEBUG] asEvaluated:', asEvaluated);
-
-      // 4. Get my past responses to know what's done
-      const myResponses = await fetchAllDocuments<Response>(COLLECTIONS.RESPONSES, [
-        Query.equal('evaluator_id', currentEmployee.$id)
-      ]);
-
-      // 5. Get all employees to display names
-      const allEmps = await fetchAllDocuments<Employee>(COLLECTIONS.EMPLOYEES, [Query.orderAsc('name')]);
 
       const generatedTasks: Task[] = [];
 
@@ -96,20 +85,26 @@ export default function EvaluationsPage() {
         // Did I get assigned evaluators in this cycle? If so, I must do self-evaluation.
         const needsSelf = asEvaluated.some(a => a.cycle_id === cycle.$id);
         if (needsSelf) {
-          const done = myResponses.some(r => r.cycle_id === cycle.$id && r.evaluated_id === currentEmployee.$id);
+          const hasResponses = myResponses.some(r => r.cycle_id === cycle.$id && r.evaluated_id === currentEmployee.$id);
+          const hasComment = myComments.some(c => c.cycle_id === cycle.$id && c.evaluated_id === currentEmployee.$id);
+          const done = hasResponses && hasComment;
           generatedTasks.push({
             id: `self_${cycle.$id}`,
             type: 'self',
             cycle,
             targetEmployee: currentEmployee,
             done,
+            hasResponses,
+            hasComment,
           });
         }
 
         // Did I get assigned to evaluate peers in this cycle?
         const myPeerAssignments = asEvaluator.filter(a => a.cycle_id === cycle.$id && a.evaluated_id !== currentEmployee.$id);
         for (const a of myPeerAssignments) {
-          const done = myResponses.some(r => r.cycle_id === cycle.$id && r.evaluated_id === a.evaluated_id);
+          const hasResponses = myResponses.some(r => r.cycle_id === cycle.$id && r.evaluated_id === a.evaluated_id);
+          const hasComment = myComments.some(c => c.cycle_id === cycle.$id && c.evaluated_id === a.evaluated_id);
+          const done = hasResponses && hasComment;
           const targetEmployee = allEmps.find(e => e.$id === a.evaluated_id);
           if (targetEmployee) {
             generatedTasks.push({
@@ -118,6 +113,8 @@ export default function EvaluationsPage() {
               cycle,
               targetEmployee,
               done,
+              hasResponses,
+              hasComment,
             });
           }
         }
@@ -136,7 +133,8 @@ export default function EvaluationsPage() {
   const pendingCount = totalCount - completedCount;
   const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
-  const pendingTasks = tasks.filter(t => !t.done);
+  const pendingTasks = tasks.filter(t => !t.done && !t.hasResponses);
+  const needsCommentTasks = tasks.filter(t => !t.done && t.hasResponses && !t.hasComment);
   const completedTasks = tasks.filter(t => t.done);
 
   // How many distinct active cycles do I have tasks in?
@@ -228,6 +226,20 @@ export default function EvaluationsPage() {
                 </div>
               )}
 
+              {/* Needs Comment */}
+              {needsCommentTasks.length > 0 && (
+                <div>
+                  <div className="px-5 py-2.5 bg-amber-50 border-t border-b border-amber-100">
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-amber-700">Falta comentario · {needsCommentTasks.length}</span>
+                  </div>
+                  <div className="divide-y divide-surface-50">
+                    {needsCommentTasks.map(t => (
+                      <TaskRow key={t.id} task={t} onClick={() => navigate(`/evaluar/${t.cycle.$id}/${t.targetEmployee.$id}`)} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Completed */}
               {completedTasks.length > 0 && (
                 <div>
@@ -254,11 +266,13 @@ export default function EvaluationsPage() {
 function TaskRow({ task, onClick }: { task: Task; onClick: () => void }) {
   const isSelf = task.type === 'self';
   const daysLeft = daysUntil(task.cycle.end_date);
-  
+  const needsComment = task.hasResponses && !task.hasComment;
+  const isClickable = !task.done;
+
   return (
     <button
-      onClick={task.done ? undefined : onClick}
-      disabled={task.done}
+      onClick={isClickable ? onClick : undefined}
+      disabled={!isClickable}
       className={`w-full flex items-center justify-between px-5 py-4 transition-colors duration-150 text-left ${
         task.done ? 'opacity-60 cursor-default' : 'hover:bg-surface-50 cursor-pointer'
       }`}
@@ -266,15 +280,22 @@ function TaskRow({ task, onClick }: { task: Task; onClick: () => void }) {
       <div className="flex items-center gap-4">
         {/* Icon */}
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-          task.done ? 'bg-green-50 text-green-600' : isSelf ? 'bg-blue-50 text-blue-600' : 'bg-primary-50 text-primary-600'
+          task.done ? 'bg-green-50 text-green-600'
+          : needsComment ? 'bg-amber-50 text-amber-600'
+          : isSelf ? 'bg-blue-50 text-blue-600'
+          : 'bg-primary-50 text-primary-600'
         }`}>
-          {isSelf ? (
+          {task.done ? (
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+          ) : needsComment ? (
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+          ) : isSelf ? (
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
           ) : (
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
           )}
         </div>
-        
+
         {/* Info */}
         <div>
           <p className="text-sm font-bold text-surface-800">
@@ -298,6 +319,11 @@ function TaskRow({ task, onClick }: { task: Task; onClick: () => void }) {
         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-green-50 text-green-600 text-[11px] font-bold uppercase tracking-wider shrink-0">
           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
           Completada
+        </span>
+      ) : needsComment ? (
+        <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-semibold transition-colors shrink-0">
+          Agregar comentario
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
         </span>
       ) : (
         <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-surface-800 text-white hover:bg-surface-900 text-xs font-semibold transition-colors shrink-0">

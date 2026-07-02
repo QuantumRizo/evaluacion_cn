@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { databases, fetchAllDocuments, Query, functions } from '../../lib/appwrite';
 import { ID } from 'appwrite';
@@ -64,48 +64,65 @@ export default function AdminDashboard() {
   // Results Tab state
   const [selectedResultCycleId, setSelectedResultCycleId] = useState<string>('');
   const [resultsStats, setResultsStats] = useState<EmployeeStats[]>([]);
+  const [cycleData, setCycleData] = useState<{
+    responses: Response[];
+    assignments: EvaluationAssignment[];
+    comments: any[];
+  } | null>(null);
+  const [allQuestions, setAllQuestions] = useState<any[]>([]);
 
   // Removed progress tab state
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [cyclesResult, emps] = await Promise.all([
+      const [cyclesResult, emps, qs] = await Promise.all([
         databases.listDocuments(DB_ID, COLLECTIONS.EVALUATION_CYCLES, [Query.orderDesc('$createdAt')]),
         fetchAllDocuments<Employee>(COLLECTIONS.EMPLOYEES, [Query.orderAsc('name')]),
+        fetchAllDocuments<any>(COLLECTIONS.QUESTIONS),
       ]);
       const cycles = cyclesResult.documents as unknown as EvaluationCycle[];
       setAllCycles(cycles);
       setAllEmployees(emps);
-      
-
-      if (!selectedResultCycleId && cycles.length > 0) {
-        setSelectedResultCycleId(cycles[0].$id);
-      }
-      // Removed selectedProgressCycleId init
+      setAllQuestions(qs);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [selectedResultCycleId]);
+  }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Set initial cycle selection once cycles are loaded
+  useEffect(() => {
+    if (!selectedResultCycleId && allCycles.length > 0) {
+      setSelectedResultCycleId(allCycles[0].$id);
+    }
+  }, [allCycles, selectedResultCycleId]);
+
+  // Use a ref for allEmployees to avoid re-triggering loadResults
+  const allEmployeesRef = useRef(allEmployees);
+  allEmployeesRef.current = allEmployees;
 
   // Load stats specifically for the selected cycle in Results
   useEffect(() => {
     async function loadResults() {
-      if (!selectedResultCycleId) return;
+      if (!selectedResultCycleId || allEmployeesRef.current.length === 0) return;
+      
+      setCycleData(null);
+      setResultsStats([]);
+
       try {
-        const [allResponses, allQuestions, cycleAssignments] = await Promise.all([
+        const [allResponses, cycleAssignments, allComments] = await Promise.all([
           fetchAllDocuments<Response>(COLLECTIONS.RESPONSES, [Query.equal('cycle_id', selectedResultCycleId)]),
-          fetchAllDocuments<{ $id: string }>(COLLECTIONS.QUESTIONS),
           fetchAllDocuments<EvaluationAssignment>(COLLECTIONS.EVALUATION_ASSIGNMENTS, [Query.equal('cycle_id', selectedResultCycleId)]),
+          fetchAllDocuments<any>(COLLECTIONS.EVALUATION_COMMENTS, [Query.equal('cycle_id', selectedResultCycleId)]),
         ]);
 
         const totalQuestions = allQuestions.length;
         
         // We only care about employees who have at least one assignment (as evaluated) in this cycle
-        const participants = allEmployees.filter(emp => cycleAssignments.some(a => a.evaluated_id === emp.$id));
+        const participants = allEmployeesRef.current.filter(emp => cycleAssignments.some(a => a.evaluated_id === emp.$id));
 
         const stats: EmployeeStats[] = participants.map((emp) => {
           const myResponses = allResponses.filter((r) => r.evaluated_id === emp.$id);
@@ -122,12 +139,17 @@ export default function AdminDashboard() {
           return { ...emp, evaluatorCount: uniquePeerEvaluators, assignedCount, selfScore, collectiveScore };
         });
         setResultsStats(stats);
+        setCycleData({
+          responses: allResponses,
+          assignments: cycleAssignments,
+          comments: allComments
+        });
       } catch (err) {
         console.error(err);
       }
     }
     loadResults();
-  }, [selectedResultCycleId, allEmployees]);
+  }, [selectedResultCycleId]);
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     {
@@ -184,6 +206,8 @@ export default function AdminDashboard() {
                 employees={resultsStats}
                 allEmployees={allEmployees}
                 onViewReport={(cycleId, empId) => navigate(`/admin/report/${cycleId}/${empId}`)}
+                cycleData={cycleData}
+                allQuestions={allQuestions}
               />
             )}
           </>
@@ -620,60 +644,42 @@ function ResultsTab({
   selectedCycleId,
   onSelectCycle,
   employees,
+  allEmployees,
   onViewReport,
+  cycleData,
+  allQuestions,
 }: {
   cycles: EvaluationCycle[];
   selectedCycleId: string;
   onSelectCycle: (id: string) => void;
   employees: EmployeeStats[];
+  allEmployees: Employee[];
   onViewReport: (cycleId: string, empId: string) => void;
+  cycleData: { responses: Response[]; assignments: EvaluationAssignment[]; comments: any[] } | null;
+  allQuestions: any[];
 }) {
   const selectedCycle = cycles.find(c => c.$id === selectedCycleId);
   const evaluatedPerson = employees.length > 0 ? employees[0] : null;
 
   const [isExporting, setIsExporting] = useState(false);
-  const [assignments, setAssignments] = useState<EvaluationAssignment[]>([]);
-  const [responses, setResponses] = useState<Response[]>([]);
-  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [selectedEvaluatorId, setSelectedEvaluatorId] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadDetails() {
-      if (!selectedCycleId || !evaluatedPerson) return;
-      setLoadingDetails(true);
-      try {
-        const [assigns, resps] = await Promise.all([
-          fetchAllDocuments<EvaluationAssignment>(COLLECTIONS.EVALUATION_ASSIGNMENTS, [
-            Query.equal('cycle_id', selectedCycleId),
-            Query.equal('evaluated_id', evaluatedPerson.$id)
-          ]),
-          fetchAllDocuments<Response>(COLLECTIONS.RESPONSES, [
-            Query.equal('cycle_id', selectedCycleId),
-            Query.equal('evaluated_id', evaluatedPerson.$id)
-          ])
-        ]);
-        setAssignments(assigns);
-        setResponses(resps);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoadingDetails(false);
-      }
-    }
-    loadDetails();
-  }, [selectedCycleId, evaluatedPerson?.$id]);
+  const assignments = cycleData ? cycleData.assignments.filter(a => a.evaluated_id === evaluatedPerson?.$id) : [];
+  const responses = cycleData ? cycleData.responses.filter(r => r.evaluated_id === evaluatedPerson?.$id) : [];
+  const comments = cycleData ? cycleData.comments.filter(c => c.evaluated_id === evaluatedPerson?.$id) : [];
+  const questions = allQuestions;
+
+
 
   async function exportToCSV() {
-    if (employees.length === 0 || !selectedCycleId || isExporting) return;
+    if (employees.length === 0 || !selectedCycleId || isExporting || !cycleData) return;
     
     try {
       setIsExporting(true);
       
-      const [allResponses, allQuestions, allComments, allEmployeesData] = await Promise.all([
-        fetchAllDocuments<any>(COLLECTIONS.RESPONSES, [Query.equal('cycle_id', selectedCycleId)]),
-        fetchAllDocuments<any>(COLLECTIONS.QUESTIONS),
-        fetchAllDocuments<any>(COLLECTIONS.EVALUATION_COMMENTS, [Query.equal('cycle_id', selectedCycleId)]),
-        fetchAllDocuments<any>(COLLECTIONS.EMPLOYEES)
-      ]);
+      const allResponses = cycleData.responses;
+      const allComments = cycleData.comments;
+      const allEmployeesData = allEmployees;
       
       const empMap = new Map(allEmployeesData.map(e => [e.$id, e]));
       
@@ -720,6 +726,9 @@ function ResultsTab({
         
         allQuestions.forEach(q => {
           const resp = allResponses.find(r => r.evaluated_id === ev.evaluatedId && r.evaluator_id === ev.evaluatorId && r.question_id === q.$id);
+          row.push(resp ? `"${Math.round(resp.score * 100)}%"` : '"N/A"');
+        });
+        
         const comment = allComments.find(c => c.evaluated_id === ev.evaluatedId && c.evaluator_id === ev.evaluatorId);
         row.push(comment && comment.comment ? `"${comment.comment.replace(/"/g, '""').replace(/\n/g, ' ')}"` : '""');
         
@@ -765,13 +774,31 @@ function ResultsTab({
         {selectedCycle && <StatusBadge status={selectedCycle.status} />}
       </div>
 
-      {!evaluatedPerson ? (
+      {!cycleData ? (
+        <div className="animate-pulse space-y-6">
+          <div className="flex flex-col md:flex-row gap-6 mb-6">
+            <div className="flex-1 grid grid-cols-3 gap-4">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="bg-surface-100 rounded-2xl h-28"></div>
+              ))}
+            </div>
+            <div className="flex flex-col gap-3 shrink-0 justify-center w-full md:w-64">
+              <div className="h-14 bg-surface-200 rounded-xl"></div>
+              <div className="h-10 bg-surface-100 rounded-xl"></div>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl border border-surface-200 overflow-hidden h-64 flex items-center justify-center bg-surface-50">
+            <div className="flex flex-col items-center gap-3">
+              <LoadingSpinner />
+              <p className="text-sm font-medium text-surface-400">Cargando resultados...</p>
+            </div>
+          </div>
+        </div>
+      ) : !evaluatedPerson ? (
         <div className="bg-white rounded-2xl border border-surface-200 p-16 text-center">
           <p className="text-surface-600 font-medium">Nadie está participando en este ciclo aún.</p>
           <p className="text-surface-400 text-sm mt-1">Ve a la pestaña de "Gestión de Ciclos" y asígnale evaluadores a alguien.</p>
         </div>
-      ) : loadingDetails ? (
-        <div className="p-10 flex justify-center"><LoadingSpinner /></div>
       ) : (
         <>
           {/* Stats row & Actions */}
@@ -821,6 +848,7 @@ function ResultsTab({
                   <th className="px-6 py-3 text-left text-xs font-semibold text-surface-400 uppercase tracking-wider">Evaluador</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-surface-400 uppercase tracking-wider">Área</th>
                   <th className="px-6 py-3 text-center text-xs font-semibold text-surface-400 uppercase tracking-wider">Estatus</th>
+                  <th className="px-6 py-3 text-center text-xs font-semibold text-surface-400 uppercase tracking-wider">Respuestas</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-100">
@@ -867,6 +895,19 @@ function ResultsTab({
                             )}
                           </span>
                         </td>
+                        <td className="px-6 py-3.5 text-center">
+                          {hasCompleted ? (
+                            <button
+                              onClick={() => setSelectedEvaluatorId(evaluator.$id)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100 text-xs font-medium transition-colors"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                              Ver respuestas
+                            </button>
+                          ) : (
+                            <span className="text-xs text-surface-300">—</span>
+                          )}
+                        </td>
                       </tr>
                     );
                   })
@@ -876,6 +917,93 @@ function ResultsTab({
           </div>
         </>
       )}
+
+      {/* ─── Modal: Evaluator Report ─────────────────── */}
+      {selectedEvaluatorId && evaluatedPerson && (() => {
+        const evaluator = allEmployees.find(e => e.$id === selectedEvaluatorId);
+        if (!evaluator) return null;
+        const evResponses = responses.filter(r => r.evaluator_id === selectedEvaluatorId);
+        const evComment = comments.find(c => c.evaluator_id === selectedEvaluatorId);
+        const isSelf = selectedEvaluatorId === evaluatedPerson.$id;
+
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ backgroundColor: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}
+            onClick={() => setSelectedEvaluatorId(null)}
+          >
+            <div
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="px-7 pt-7 pb-5 border-b border-surface-100 flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-surface-400">Reporte de Evaluador</span>
+                    {isSelf && <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-primary-100 text-primary-700">Autoevaluación</span>}
+                  </div>
+                  <h2 className="text-xl font-bold text-surface-800">{evaluator.name}</h2>
+                  <p className="text-sm text-surface-400 mt-0.5">
+                    {evaluator.position ?? 'Sin puesto'} • {evaluator.department ?? 'Sin área'}
+                  </p>
+                  <p className="text-xs text-surface-400 mt-2">
+                    Evaluando a: <span className="font-semibold text-surface-600">{evaluatedPerson.name}</span>
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedEvaluatorId(null)}
+                  className="p-2 rounded-lg hover:bg-surface-100 text-surface-400 hover:text-surface-700 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+
+              {/* Questions */}
+              <div className="px-7 py-5 space-y-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-surface-400 mb-4">Respuestas por Pregunta</h3>
+                {questions.length === 0 ? (
+                  <p className="text-surface-500 text-sm">Cargando preguntas...</p>
+                ) : (
+                  questions.map((q, idx) => {
+                    const resp = evResponses.find(r => r.question_id === q.$id);
+                    const pct = resp ? Math.round(resp.score * 100) : null;
+                    const color = pct === null ? 'bg-surface-100' : pct >= 75 ? 'bg-green-500' : pct >= 50 ? 'bg-amber-400' : 'bg-red-400';
+                    return (
+                      <div key={q.$id} className="flex items-center gap-4">
+                        <span className="text-xs text-surface-400 w-5 shrink-0 text-right">{idx + 1}</span>
+                        <p className="flex-1 text-sm text-surface-700">{q.text}</p>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="w-24 h-2 rounded-full bg-surface-100 overflow-hidden">
+                            <div className={`h-2 rounded-full ${color} transition-all`} style={{ width: pct !== null ? `${pct}%` : '0%' }} />
+                          </div>
+                          <span className={`text-xs font-bold w-10 text-right ${pct === null ? 'text-surface-400' : pct >= 75 ? 'text-green-600' : pct >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
+                            {pct !== null ? `${pct}%` : 'N/A'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Comment */}
+              <div className="px-7 pb-7">
+                <div className="border-t border-surface-100 pt-5">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-surface-400 mb-3">Comentario Abierto</h3>
+                  {evComment && evComment.comment ? (
+                    <div className="bg-surface-50 border border-surface-200 rounded-xl p-4">
+                      <p className="text-sm text-surface-700 leading-relaxed whitespace-pre-wrap">{evComment.comment}</p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-surface-400 italic">Este evaluador no dejó un comentario adicional.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

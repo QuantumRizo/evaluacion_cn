@@ -13,7 +13,7 @@ const client = new Client()
 const usersClient = new Users(client);
 
 const users = [
-  { name: 'Sofia', email: 'sofy@centrales.com.mx' }
+  { name: 'Arturo Perez', email: 'arturop@centraldenegociosmx.com' }
 ];
 
 const password = '12345678';

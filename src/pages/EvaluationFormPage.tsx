@@ -96,35 +96,34 @@ export default function EvaluationFormPage() {
   const answeredCount = Object.keys(answers).length;
   const totalQuestions = questions.length;
   const allAnswered = answeredCount === totalQuestions && totalQuestions > 0;
+  const canSubmit = allAnswered && comment.trim().length > 0;
 
   async function handleSubmit() {
-    if (!allAnswered || !cycle || !currentEmployee) return;
+    if (!canSubmit || !cycle || !currentEmployee) return;
     setSubmitting(true);
     setError('');
 
     try {
       const evaluationType = isSelf ? 'self' : 'peer';
-      for (const question of questions) {
-        await databases.createDocument(DB_ID, COLLECTIONS.RESPONSES, ID.unique(), {
+      await Promise.all(questions.map(question =>
+        databases.createDocument(DB_ID, COLLECTIONS.RESPONSES, ID.unique(), {
           cycle_id: cycle.$id,
           question_id: question.$id,
           evaluator_id: currentEmployee.$id,
           evaluated_id: evaluatedId,
           score: answers[question.$id],
           evaluation_type: evaluationType,
-        });
-      }
+        })
+      ));
 
-      // Save comment if provided
-      if (comment.trim()) {
-        await databases.createDocument(DB_ID, COLLECTIONS.EVALUATION_COMMENTS, ID.unique(), {
-          cycle_id: cycle.$id,
-          evaluator_id: currentEmployee.$id,
-          evaluated_id: evaluatedId,
-          evaluation_type: evaluationType,
-          comment: comment.trim(),
-        });
-      }
+      // Save comment (required)
+      await databases.createDocument(DB_ID, COLLECTIONS.EVALUATION_COMMENTS, ID.unique(), {
+        cycle_id: cycle.$id,
+        evaluator_id: currentEmployee.$id,
+        evaluated_id: evaluatedId,
+        evaluation_type: evaluationType,
+        comment: comment.trim(),
+      });
 
       navigate('/evaluaciones', { state: { submitted: true } });
     } catch (err) {
@@ -421,9 +420,14 @@ export default function EvaluationFormPage() {
               Responde todas las preguntas para enviar.
             </p>
           )}
+          {allAnswered && !comment.trim() && (
+            <p className="text-xs text-amber-500">
+              El comentario es obligatorio para enviar la evaluación.
+            </p>
+          )}
           <button
             onClick={handleSubmit}
-            disabled={!allAnswered || submitting}
+            disabled={!canSubmit || submitting}
             className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary-500 hover:bg-primary-600 disabled:bg-surface-200 disabled:text-surface-400 text-white text-sm font-semibold transition-all duration-200"
           >
             {submitting ? (

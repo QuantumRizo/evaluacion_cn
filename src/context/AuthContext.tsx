@@ -1,7 +1,9 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from 'react';
@@ -54,28 +56,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function login(email: string, password: string) {
+  const login = useCallback(async (email: string, password: string) => {
     await account.createEmailPasswordSession(email, password);
     await checkAuth();
-  }
+  }, []);
 
-  async function logout() {
+  const logout = useCallback(async () => {
     await account.deleteSession('current');
     setUser(null);
     setEmployee(null);
-  }
+  }, []);
+
+  const value = useMemo(() => ({
+    user,
+    employee,
+    isLoading,
+    isAdmin: employee?.role === 'admin',
+    login,
+    logout,
+  }), [user, employee, isLoading, login, logout]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        employee,
-        isLoading,
-        isAdmin: employee?.role === 'admin',
-        login,
-        logout,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

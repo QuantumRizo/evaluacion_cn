@@ -21,7 +21,7 @@ export async function fetchAllDocuments<T>(
   queries: string[] = []
 ): Promise<T[]> {
   const all: T[] = [];
-  const limit = 100;
+  const limit = 5000;
   let cursor: string | undefined;
 
   while (true) {
