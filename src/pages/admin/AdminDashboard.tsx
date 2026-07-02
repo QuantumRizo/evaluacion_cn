@@ -181,8 +181,9 @@ export default function AdminDashboard() {
                 cycles={allCycles}
                 selectedCycleId={selectedResultCycleId}
                 onSelectCycle={setSelectedResultCycleId}
-                employees={resultsStats} 
-                onViewReport={(cycleId, empId) => navigate(`/admin/reporte/${cycleId}/${empId}`)} 
+                employees={resultsStats}
+                allEmployees={allEmployees}
+                onViewReport={(cycleId, empId) => navigate(`/admin/report/${cycleId}/${empId}`)}
               />
             )}
           </>
@@ -628,8 +629,38 @@ function ResultsTab({
   onViewReport: (cycleId: string, empId: string) => void;
 }) {
   const selectedCycle = cycles.find(c => c.$id === selectedCycleId);
-  const completedCount = employees.filter((e) => e.collectiveScore !== null).length;
+  const evaluatedPerson = employees.length > 0 ? employees[0] : null;
+
   const [isExporting, setIsExporting] = useState(false);
+  const [assignments, setAssignments] = useState<EvaluationAssignment[]>([]);
+  const [responses, setResponses] = useState<Response[]>([]);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+
+  useEffect(() => {
+    async function loadDetails() {
+      if (!selectedCycleId || !evaluatedPerson) return;
+      setLoadingDetails(true);
+      try {
+        const [assigns, resps] = await Promise.all([
+          fetchAllDocuments<EvaluationAssignment>(COLLECTIONS.EVALUATION_ASSIGNMENTS, [
+            Query.equal('cycle_id', selectedCycleId),
+            Query.equal('evaluated_id', evaluatedPerson.$id)
+          ]),
+          fetchAllDocuments<Response>(COLLECTIONS.RESPONSES, [
+            Query.equal('cycle_id', selectedCycleId),
+            Query.equal('evaluated_id', evaluatedPerson.$id)
+          ])
+        ]);
+        setAssignments(assigns);
+        setResponses(resps);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingDetails(false);
+      }
+    }
+    loadDetails();
+  }, [selectedCycleId, evaluatedPerson?.$id]);
 
   async function exportToCSV() {
     if (employees.length === 0 || !selectedCycleId || isExporting) return;
@@ -689,9 +720,6 @@ function ResultsTab({
         
         allQuestions.forEach(q => {
           const resp = allResponses.find(r => r.evaluated_id === ev.evaluatedId && r.evaluator_id === ev.evaluatorId && r.question_id === q.$id);
-          row.push(resp ? `"${Math.round(resp.score * 100)}%"` : '"N/A"');
-        });
-        
         const comment = allComments.find(c => c.evaluated_id === ev.evaluatedId && c.evaluator_id === ev.evaluatorId);
         row.push(comment && comment.comment ? `"${comment.comment.replace(/"/g, '""').replace(/\n/g, ' ')}"` : '""');
         
@@ -718,6 +746,10 @@ function ResultsTab({
     return <div className="text-center p-10 text-surface-500">No hay ciclos creados.</div>;
   }
 
+  const completedEvaluatorsCount = new Set(responses.map(r => r.evaluator_id)).size;
+  const totalEvaluators = assignments.length;
+  const pendingCount = totalEvaluators - completedEvaluatorsCount;
+
   return (
     <div>
       {/* Dropdown to select cycle */}
@@ -733,79 +765,112 @@ function ResultsTab({
         {selectedCycle && <StatusBadge status={selectedCycle.status} />}
       </div>
 
-      {employees.length === 0 ? (
+      {!evaluatedPerson ? (
         <div className="bg-white rounded-2xl border border-surface-200 p-16 text-center">
           <p className="text-surface-600 font-medium">Nadie está participando en este ciclo aún.</p>
           <p className="text-surface-400 text-sm mt-1">Ve a la pestaña de "Gestión de Ciclos" y asígnale evaluadores a alguien.</p>
         </div>
+      ) : loadingDetails ? (
+        <div className="p-10 flex justify-center"><LoadingSpinner /></div>
       ) : (
         <>
-          {/* Stats row */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            {[
-              { label: 'Participantes en este ciclo', value: employees.length, color: 'text-surface-800' },
-              { label: 'Con evaluaciones completas', value: completedCount, color: 'text-green-600' },
-              { label: 'Sin evaluaciones aún', value: employees.length - completedCount, color: 'text-amber-600' },
-            ].map((s) => (
-              <div key={s.label} className="bg-white rounded-2xl border border-surface-200 p-5">
-                <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
-                <p className="text-xs text-surface-400 mt-1">{s.label}</p>
-              </div>
-            ))}
+          {/* Stats row & Actions */}
+          <div className="flex flex-col md:flex-row gap-6 mb-6">
+            <div className="flex-1 grid grid-cols-3 gap-4">
+              {[
+                { label: 'Evaluadores Asignados', value: totalEvaluators, color: 'text-surface-800' },
+                { label: 'Completados', value: completedEvaluatorsCount, color: 'text-green-600' },
+                { label: 'Pendientes', value: pendingCount, color: 'text-amber-600' },
+              ].map((s) => (
+                <div key={s.label} className="bg-white rounded-2xl border border-surface-200 p-5">
+                  <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
+                  <p className="text-xs text-surface-400 mt-1">{s.label}</p>
+                </div>
+              ))}
+            </div>
+            
+            <div className="flex flex-col gap-3 shrink-0 justify-center">
+              <button
+                onClick={() => onViewReport(selectedCycleId, evaluatedPerson.$id)}
+                className="flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-colors shadow-sm"
+              >
+                Ver Reporte de {evaluatedPerson.name.split(' ')[0]}
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+              </button>
+              
+              <button
+                onClick={exportToCSV}
+                disabled={isExporting}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-surface-200 hover:bg-surface-50 text-surface-700 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isExporting ? 'Generando CSV...' : 'Descargar Excel Detallado'}
+              </button>
+            </div>
           </div>
 
           {/* Table */}
           <div className="bg-white rounded-2xl border border-surface-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-surface-100 flex items-center justify-between">
-              <h2 className="font-semibold text-surface-800 text-sm">Participantes</h2>
-              <button
-                onClick={exportToCSV}
-                disabled={isExporting}
-                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-surface-50 border border-surface-200 hover:bg-surface-100 text-surface-700 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isExporting ? 'Generando...' : 'Exportar CSV'}
-              </button>
+            <div className="px-6 py-4 border-b border-surface-100 bg-surface-50/60">
+              <h2 className="font-semibold text-surface-800 text-sm">Progreso de Evaluadores para {evaluatedPerson.name}</h2>
             </div>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-surface-100 bg-surface-50/60">
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-surface-400 uppercase tracking-wider">Colaborador</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-surface-400 uppercase tracking-wider">Evaluador</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-surface-400 uppercase tracking-wider">Área</th>
-                  <th className="px-6 py-3 text-center text-xs font-semibold text-surface-400 uppercase tracking-wider">Evaluadores</th>
-                  <th className="px-6 py-3 text-center text-xs font-semibold text-surface-400 uppercase tracking-wider">Autoevaluación</th>
-                  <th className="px-6 py-3 text-center text-xs font-semibold text-surface-400 uppercase tracking-wider">Colectiva</th>
-                  <th className="px-6 py-3 text-right text-xs font-semibold text-surface-400 uppercase tracking-wider">Acciones</th>
+                  <th className="px-6 py-3 text-center text-xs font-semibold text-surface-400 uppercase tracking-wider">Estatus</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-surface-50">
-                {employees.map((emp) => (
-                  <tr key={emp.$id} className="hover:bg-surface-50/60 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary-50 flex items-center justify-center shrink-0">
-                          <span className="text-xs font-bold text-primary-600">{emp.name.charAt(0).toUpperCase()}</span>
-                        </div>
-                        <span className="font-medium text-surface-800">{emp.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-surface-500">{emp.department ?? '—'}</td>
-                    <td className="px-6 py-4 text-center">
-                      <span className="text-xs font-medium text-surface-600">
-                        {emp.evaluatorCount}/{emp.assignedCount}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-center"><ScoreChip value={emp.selfScore} /></td>
-                    <td className="px-6 py-4 text-center"><ScoreChip value={emp.collectiveScore} /></td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => onViewReport(selectedCycleId, emp.$id)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-surface-200 text-xs font-medium text-surface-600 hover:border-primary-300 hover:text-primary-600 hover:bg-primary-50 transition-all"
-                      >
-                        Ver reporte
-                      </button>
-                    </td>
+              <tbody className="divide-y divide-surface-100">
+                {assignments.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="px-6 py-8 text-center text-surface-500">No hay evaluadores asignados.</td>
                   </tr>
-                ))}
+                ) : (
+                  assignments.map((assignment) => {
+                    const evaluator = allEmployees.find(e => e.$id === assignment.evaluator_id);
+                    if (!evaluator) return null;
+                    
+                    const hasCompleted = responses.some(r => r.evaluator_id === evaluator.$id);
+                    const isSelf = evaluator.$id === evaluatedPerson.$id;
+                    
+                    return (
+                      <tr key={assignment.$id} className="hover:bg-surface-50/50 transition-colors">
+                        <td className="px-6 py-3.5">
+                          <div className="flex flex-col">
+                            <span className="font-medium text-surface-800 flex items-center gap-2">
+                              {evaluator.name}
+                              {isSelf && <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-primary-100 text-primary-700">Autoevaluación</span>}
+                            </span>
+                            <span className="text-xs text-surface-400 mt-0.5">{evaluator.position ?? 'Sin puesto'}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-3.5 text-surface-600">
+                          {evaluator.department ?? '—'}
+                        </td>
+                        <td className="px-6 py-3.5 text-center">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold border ${
+                            hasCompleted ? 'bg-green-50 text-green-700 border-green-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+                          }`}>
+                            {hasCompleted ? (
+                              <>
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                Completado
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                Pendiente
+                              </>
+                            )}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
