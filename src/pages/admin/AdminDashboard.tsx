@@ -20,19 +20,6 @@ type Tab = 'ciclos' | 'resultados';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function ScoreChip({ value }: { value: number | null }) {
-  if (value === null) return <span className="text-surface-300 text-xs">—</span>;
-  const pct = Math.round(value * 100);
-  const color =
-    pct >= 75 ? 'text-green-700 bg-green-50 border-green-100' :
-    pct >= 50 ? 'text-amber-700 bg-amber-50 border-amber-100' :
-    'text-red-700 bg-red-50 border-red-100';
-  return (
-    <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-semibold border ${color}`}>
-      {pct}%
-    </span>
-  );
-}
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; className: string }> = {
