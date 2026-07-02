@@ -157,6 +157,61 @@ export default function AdminReportPage() {
     year: 'numeric', month: 'long', day: 'numeric',
   });
 
+  function exportToCSV() {
+    if (!employee || !cycle || questions.length === 0) return;
+
+    const questionHeaders = questions.map(q => `"${q.text.replace(/"/g, '""')}"`);
+    const headers = [
+      'Evaluado', 
+      'Área del Evaluado', 
+      'Evaluador', 
+      'Área del Evaluador', 
+      'Tipo de Evaluación',
+      ...questionHeaders,
+      'Comentario Abierto',
+      'Síntesis Administrativa',
+      'Calificación Final'
+    ];
+
+    const rows: string[] = [];
+    const evIds = Array.from(new Set([...responses.map(r => r.evaluator_id), ...comments.map(c => c.evaluator_id)]));
+
+    evIds.forEach(evId => {
+      const evaluator = employees.find(e => e.$id === evId);
+      if (!evaluator) return;
+
+      const isSelf = evId === employeeId;
+      const row = [
+        `"${employee.name}"`,
+        `"${employee.department || ''}"`,
+        `"${evaluator.name}"`,
+        `"${evaluator.department || ''}"`,
+        `"${isSelf ? 'Autoevaluacion' : 'Colectiva'}"`
+      ];
+
+      questions.forEach(q => {
+        const resp = responses.find(r => r.evaluator_id === evId && r.question_id === q.$id);
+        row.push(resp ? `"${Math.round(resp.score * 100)}%"` : '"N/A"');
+      });
+
+      const evComment = comments.find(c => c.evaluator_id === evId);
+      row.push(evComment && evComment.comment ? `"${evComment.comment.replace(/"/g, '""').replace(/\n/g, ' ')}"` : '""');
+      
+      row.push(`"${adminSummary.replace(/"/g, '""').replace(/\n/g, ' ')}"`);
+      row.push(`"${finalScore !== '' ? Math.round(Number(finalScore) * 100) + '%' : 'Pendiente'}"`);
+
+      rows.push(row.join(','));
+    });
+
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows].join('\n');
+    const link = document.createElement('a');
+    link.href = encodeURI(csvContent);
+    link.download = `reporte_${employee.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   if (loading) return <div className="min-h-screen bg-surface-100 md:pl-64 print:pl-0"><Navbar /><LoadingSpinner fullPage /></div>;
 
   return (
@@ -185,13 +240,13 @@ export default function AdminReportPage() {
             </p>
           </div>
           <button
-            onClick={() => window.print()}
+            onClick={exportToCSV}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-surface-200 bg-white hover:border-surface-300 text-surface-700 text-sm font-medium transition-all"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            Imprimir / PDF
+            Exportar Excel
           </button>
         </div>
 

@@ -646,22 +646,89 @@ function ResultsTab({
 }) {
   const selectedCycle = cycles.find(c => c.$id === selectedCycleId);
   const completedCount = employees.filter((e) => e.collectiveScore !== null).length;
+  const [isExporting, setIsExporting] = useState(false);
 
-  function exportToCSV() {
-    if (employees.length === 0) return;
-    const headers = ['Colaborador', 'Area', 'Evaluadores Asignados', 'Evaluadores Completados', 'Autoevaluacion', 'Calificacion Colectiva'];
-    const rows = employees.map((emp) => {
-      const auto = emp.selfScore !== null ? Math.round(emp.selfScore * 100) + '%' : 'N/A';
-      const col = emp.collectiveScore !== null ? Math.round(emp.collectiveScore * 100) + '%' : 'N/A';
-      return [`"${emp.name}"`, `"${emp.department ?? ''}"`, emp.assignedCount, emp.evaluatorCount, `"${auto}"`, `"${col}"`].join(',');
-    });
-    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows].join('\n');
-    const link = document.createElement('a');
-    link.href = encodeURI(csvContent);
-    link.download = `resultados_${selectedCycle?.name?.replace(/[^a-z0-9]/gi, '_').toLowerCase() ?? 'ciclo'}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  async function exportToCSV() {
+    if (employees.length === 0 || !selectedCycleId || isExporting) return;
+    
+    try {
+      setIsExporting(true);
+      
+      const [allResponses, allQuestions, allComments, allEmployeesData] = await Promise.all([
+        fetchAllDocuments<any>(COLLECTIONS.RESPONSES, [Query.equal('cycle_id', selectedCycleId)]),
+        fetchAllDocuments<any>(COLLECTIONS.QUESTIONS),
+        fetchAllDocuments<any>(COLLECTIONS.EVALUATION_COMMENTS, [Query.equal('cycle_id', selectedCycleId)]),
+        fetchAllDocuments<any>(COLLECTIONS.EMPLOYEES)
+      ]);
+      
+      const empMap = new Map(allEmployeesData.map(e => [e.$id, e]));
+      
+      const questionHeaders = allQuestions.map(q => `"${q.text.replace(/"/g, '""')}"`);
+      const headers = [
+        'Evaluado', 
+        'Área del Evaluado', 
+        'Evaluador', 
+        'Área del Evaluador', 
+        'Tipo de Evaluación',
+        ...questionHeaders,
+        'Comentario Abierto'
+      ];
+      
+      const rows: string[] = [];
+      const evaluations = new Map<string, { evaluatedId: string, evaluatorId: string }>();
+      
+      allResponses.forEach(r => {
+        const key = `${r.evaluated_id}_${r.evaluator_id}`;
+        if (!evaluations.has(key)) {
+          evaluations.set(key, { evaluatedId: r.evaluated_id, evaluatorId: r.evaluator_id });
+        }
+      });
+      allComments.forEach(c => {
+        const key = `${c.evaluated_id}_${c.evaluator_id}`;
+        if (!evaluations.has(key)) {
+          evaluations.set(key, { evaluatedId: c.evaluated_id, evaluatorId: c.evaluator_id });
+        }
+      });
+      
+      Array.from(evaluations.values()).forEach(ev => {
+        const evaluated = empMap.get(ev.evaluatedId);
+        const evaluator = empMap.get(ev.evaluatorId);
+        
+        if (!evaluated || !evaluator) return;
+        
+        const row = [
+          `"${evaluated.name}"`,
+          `"${evaluated.department || ''}"`,
+          `"${evaluator.name}"`,
+          `"${evaluator.department || ''}"`,
+          `"${ev.evaluatedId === ev.evaluatorId ? 'Autoevaluacion' : 'Colectiva'}"`
+        ];
+        
+        allQuestions.forEach(q => {
+          const resp = allResponses.find(r => r.evaluated_id === ev.evaluatedId && r.evaluator_id === ev.evaluatorId && r.question_id === q.$id);
+          row.push(resp ? `"${Math.round(resp.score * 100)}%"` : '"N/A"');
+        });
+        
+        const comment = allComments.find(c => c.evaluated_id === ev.evaluatedId && c.evaluator_id === ev.evaluatorId);
+        row.push(comment && comment.comment ? `"${comment.comment.replace(/"/g, '""').replace(/\n/g, ' ')}"` : '""');
+        
+        rows.push(row.join(','));
+      });
+      
+      const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows].join('\n');
+      const link = document.createElement('a');
+      link.href = encodeURI(csvContent);
+      link.download = `resultados_detallados_${selectedCycle?.name?.replace(/[^a-z0-9]/gi, '_').toLowerCase() ?? 'ciclo'}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+    } catch (err) {
+      console.error('Error exportando CSV detallado:', err);
+      alert('Hubo un error al exportar los datos detallados.');
+    } finally {
+      setIsExporting(false);
+    }
   }
 
   if (cycles.length === 0) {
@@ -710,9 +777,10 @@ function ResultsTab({
               <h2 className="font-semibold text-surface-800 text-sm">Participantes</h2>
               <button
                 onClick={exportToCSV}
-                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-surface-50 border border-surface-200 hover:bg-surface-100 text-surface-700 text-xs font-medium transition-colors"
+                disabled={isExporting}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-surface-50 border border-surface-200 hover:bg-surface-100 text-surface-700 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Exportar CSV
+                {isExporting ? 'Generando...' : 'Exportar CSV'}
               </button>
             </div>
             <table className="w-full text-sm">
